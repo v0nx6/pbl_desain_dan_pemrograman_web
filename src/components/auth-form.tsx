@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { AddressPicker } from "@/components/address-picker";
+import { GoogleSignIn } from "@/components/google-sign-in";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { SectionLabel } from "@/components/ui/label";
@@ -150,6 +151,8 @@ export function AuthForm({
       <SectionLabel>{text.label}</SectionLabel>
       <h1 className="mt-3 font-display text-4xl leading-tight">{text.title}</h1>
       <p className="mt-3 text-sm text-espresso-500">{text.intro}</p>
+
+      <GoogleSignIn next={target} />
 
       <form onSubmit={submit} noValidate className="mt-8 space-y-5">
         {mode === "daftar" ? (

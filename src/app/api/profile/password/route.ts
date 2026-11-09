@@ -27,9 +27,14 @@ export async function PATCH(request: Request): Promise<NextResponse> {
       throw new ApiError(404, "Akun tidak ditemukan.");
     }
 
-    const matches = await verifyPassword(body.currentPassword, row.passwordHash);
-    if (!matches) {
-      throw new ApiError(401, "Kata sandi saat ini tidak cocok.");
+    if (row.passwordHash) {
+      const matches = await verifyPassword(
+        body.currentPassword,
+        row.passwordHash,
+      );
+      if (!matches) {
+        throw new ApiError(401, "Kata sandi saat ini tidak cocok.");
+      }
     }
 
     await prisma.user.update({
@@ -37,7 +42,7 @@ export async function PATCH(request: Request): Promise<NextResponse> {
       data: { passwordHash: await hashPassword(body.newPassword) },
     });
 
-    return noStoreJson({ ok: true });
+    return noStoreJson({ ok: true, created: !row.passwordHash });
   } catch (error) {
     return apiError(error);
   }

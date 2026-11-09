@@ -92,8 +92,11 @@ export async function DELETE(request: Request): Promise<NextResponse> {
       select: { passwordHash: true },
     });
 
-    if (!row) {
-      throw new ApiError(404, "Akun tidak ditemukan.");
+    if (!row?.passwordHash) {
+      throw new ApiError(
+        409,
+        "Buat kata sandi dulu sebelum menghapus akun ini.",
+      );
     }
 
     if (!(await verifyPassword(body.password, row.passwordHash))) {

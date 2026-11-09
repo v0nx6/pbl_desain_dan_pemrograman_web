@@ -37,6 +37,7 @@ export type SessionUser = {
   postalCode: string | null;
   mapUrl: string | null;
   addressNote: string | null;
+  hasPassword: boolean;
 };
 
 export type SiteImage = {
@@ -85,7 +86,11 @@ export type OrderStatus =
   | "COMPLETED"
   | "CANCELLED";
 
-export type PaymentMethod = "QRIS" | "BANK_TRANSFER";
+export type PaymentMethod = "QRIS" | "BANK_TRANSFER" | "COD";
+
+export type BankName = "BCA" | "MANDIRI" | "BNI" | "BRI";
+
+export type FulfillmentType = "PICKUP" | "COURIER";
 
 export type PaymentStatus = "UNPAID" | "PROOF_UPLOADED" | "VERIFIED" | "REJECTED";
 
@@ -103,6 +108,8 @@ export type OrderSummary = {
   number: string;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
+  bankName: BankName | null;
+  fulfillmentType: FulfillmentType;
   paymentStatus: PaymentStatus;
   total: number;
   createdAt: string;

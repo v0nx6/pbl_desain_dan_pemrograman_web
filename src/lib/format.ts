@@ -1,4 +1,10 @@
-import type { OrderStatus, PaymentStatus } from "@/lib/types";
+import type {
+  BankName,
+  FulfillmentType,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from "@/lib/types";
 
 const idr = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -44,6 +50,24 @@ export const orderStatusLabels: Record<OrderStatus, string> = {
   SHIPPED: "Dikirim",
   COMPLETED: "Selesai",
   CANCELLED: "Dibatalkan",
+};
+
+export const paymentMethodLabels: Record<PaymentMethod, string> = {
+  QRIS: "QRIS",
+  BANK_TRANSFER: "Transfer bank",
+  COD: "Bayar di tempat",
+};
+
+export const bankLabels: Record<BankName, string> = {
+  BCA: "BCA",
+  MANDIRI: "Mandiri",
+  BNI: "BNI",
+  BRI: "BRI",
+};
+
+export const fulfillmentLabels: Record<FulfillmentType, string> = {
+  PICKUP: "Ambil di toko",
+  COURIER: "Kirim lewat kurir",
 };
 
 export const paymentStatusLabels: Record<PaymentStatus, string> = {

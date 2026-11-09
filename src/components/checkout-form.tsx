@@ -7,8 +7,13 @@ import { useCart } from "@/components/cart-provider";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { ProductMedia } from "@/components/ui/product-media";
-import { formatIDR, lineKey } from "@/lib/format";
-import type { PaymentMethod, SessionUser } from "@/lib/types";
+import { bankLabels, formatIDR, lineKey } from "@/lib/format";
+import type {
+  BankName,
+  FulfillmentType,
+  PaymentMethod,
+  SessionUser,
+} from "@/lib/types";
 
 const SHIPPING_FLAT = 25000;
 const FREE_SHIPPING_MIN = 1000000;
@@ -20,9 +25,32 @@ type FieldErrors = {
   city?: string;
   postalCode?: string;
   note?: string;
+  paymentMethod?: string;
+  bankName?: string;
 };
 
-const methods: { value: PaymentMethod; label: string; hint: string }[] = [
+const fulfillmentOptions: {
+  value: FulfillmentType;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "COURIER",
+    label: "Kirim lewat kurir",
+    hint: "Ongkir Rp 25.000, gratis mulai Rp 1.000.000.",
+  },
+  {
+    value: "PICKUP",
+    label: "Ambil di toko",
+    hint: "Tanpa ongkir. Alamat toko kami kirim lewat chat.",
+  },
+];
+
+const paymentOptions: {
+  value: PaymentMethod;
+  label: string;
+  hint: string;
+}[] = [
   {
     value: "QRIS",
     label: "QRIS",
@@ -31,9 +59,16 @@ const methods: { value: PaymentMethod; label: string; hint: string }[] = [
   {
     value: "BANK_TRANSFER",
     label: "Transfer bank",
-    hint: "Nomor VA demo tampil setelah pesanan dibuat.",
+    hint: "Pilih bank, nomor VA demo tampil setelah pesanan dibuat.",
+  },
+  {
+    value: "COD",
+    label: "Bayar di tempat (COD)",
+    hint: "Bayar ke kurir saat paket datang. Khusus pengiriman kurir.",
   },
 ];
+
+const banks: BankName[] = ["BCA", "MANDIRI", "BNI", "BRI"];
 
 export function CheckoutForm({ user }: { user: SessionUser }) {
   const router = useRouter();
@@ -41,18 +76,42 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
 
   const [recipientName, setRecipientName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone ?? "");
+  const [fulfillmentType, setFulfillmentType] =
+    useState<FulfillmentType>("COURIER");
   const [addressLine, setAddressLine] = useState(user.addressLine ?? "");
   const [city, setCity] = useState(user.city ?? "");
   const [postalCode, setPostalCode] = useState(user.postalCode ?? "");
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("QRIS");
+  const [bankName, setBankName] = useState<BankName>("BCA");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const shippingCost = subtotal >= FREE_SHIPPING_MIN ? 0 : SHIPPING_FLAT;
+  const isPickup = fulfillmentType === "PICKUP";
+  const availablePayments = isPickup
+    ? paymentOptions.filter((option) => option.value !== "COD")
+    : paymentOptions;
+  const shippingCost = isPickup
+    ? 0
+    : subtotal >= FREE_SHIPPING_MIN
+      ? 0
+      : SHIPPING_FLAT;
   const total = subtotal + shippingCost;
   const missingLines = lines.length - detailed.length;
+  const activePaymentLabel =
+    paymentMethod === "BANK_TRANSFER"
+      ? `Transfer ${bankLabels[bankName]}`
+      : paymentMethod === "COD"
+        ? "Bayar di tempat (COD)"
+        : "QRIS";
+
+  function chooseFulfillment(value: FulfillmentType) {
+    setFulfillmentType(value);
+    if (value === "PICKUP" && paymentMethod === "COD") {
+      setPaymentMethod("BANK_TRANSFER");
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,12 +123,14 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
     if (!/^[0-9+\-\s()]{8,20}$/.test(phone.trim())) {
       local.phone = "Masukkan nomor telepon yang valid.";
     }
-    if (addressLine.trim().length < 8) {
-      local.addressLine = "Alamat minimal 8 karakter.";
-    }
-    if (city.trim().length < 2) local.city = "Kota minimal 2 karakter.";
-    if (!/^[0-9]{5}$/.test(postalCode.trim())) {
-      local.postalCode = "Kode pos terdiri dari 5 angka.";
+    if (!isPickup) {
+      if (addressLine.trim().length < 8) {
+        local.addressLine = "Alamat minimal 8 karakter.";
+      }
+      if (city.trim().length < 2) local.city = "Kota minimal 2 karakter.";
+      if (!/^[0-9]{5}$/.test(postalCode.trim())) {
+        local.postalCode = "Kode pos terdiri dari 5 angka.";
+      }
     }
 
     setErrors(local);
@@ -93,11 +154,13 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
           })),
           recipientName: recipientName.trim(),
           phone: phone.trim(),
-          addressLine: addressLine.trim(),
-          city: city.trim(),
-          postalCode: postalCode.trim(),
+          fulfillmentType,
+          addressLine: isPickup ? undefined : addressLine.trim(),
+          city: isPickup ? undefined : city.trim(),
+          postalCode: isPickup ? undefined : postalCode.trim(),
           note: note.trim() || undefined,
           paymentMethod,
+          bankName: paymentMethod === "BANK_TRANSFER" ? bankName : undefined,
         }),
       });
 
@@ -117,6 +180,8 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
           "city",
           "postalCode",
           "note",
+          "paymentMethod",
+          "bankName",
         ] as const) {
           if (details[key]?.[0]) mapped[key] = details[key]?.[0];
         }
@@ -157,12 +222,50 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
   return (
     <form onSubmit={submit} noValidate className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
       <div className="space-y-8">
+        <fieldset className="rounded-[var(--radius-card)] border border-line bg-ivory-50 p-5 sm:p-6">
+          <legend className="px-1 font-display text-2xl">
+            Cara terima pesanan
+          </legend>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {fulfillmentOptions.map((option) => {
+              const selected = fulfillmentType === option.value;
+              return (
+                <label
+                  key={option.value}
+                  className={`block cursor-pointer rounded-2xl border p-4 transition-colors focus-within:outline-2 focus-within:outline-clay-500 focus-within:outline-offset-2 ${
+                    selected
+                      ? "border-clay-500 bg-clay-50"
+                      : "border-line bg-ivory-50 hover:border-espresso-700"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="cara-terima"
+                    value={option.value}
+                    checked={selected}
+                    onChange={() => chooseFulfillment(option.value)}
+                    className="sr-only"
+                  />
+                  <span className="block text-sm font-medium">
+                    {option.label}
+                  </span>
+                  <span className="mt-1 block text-xs text-espresso-500">
+                    {option.hint}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+
         <section className="rounded-[var(--radius-card)] border border-line bg-ivory-50 p-5 sm:p-6">
-          <h2 className="font-display text-2xl">Alamat pengiriman</h2>
+          <h2 className="font-display text-2xl">
+            {isPickup ? "Kontak" : "Alamat pengiriman"}
+          </h2>
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <Field
-                label="Nama penerima"
+                label={isPickup ? "Nama" : "Nama penerima"}
                 value={recipientName}
                 onChange={setRecipientName}
                 error={errors.recipientName}
@@ -180,33 +283,43 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
               autoComplete="tel"
               required
             />
-            <Field
-              label="Kode pos"
-              value={postalCode}
-              onChange={setPostalCode}
-              error={errors.postalCode}
-              autoComplete="postal-code"
-              required
-            />
-            <div className="sm:col-span-2">
-              <Field
-                label="Alamat lengkap"
-                value={addressLine}
-                onChange={setAddressLine}
-                error={errors.addressLine}
-                hint="Jalan, nomor rumah, RT/RW, kelurahan."
-                autoComplete="street-address"
-                required
-              />
-            </div>
-            <Field
-              label="Kota atau kabupaten"
-              value={city}
-              onChange={setCity}
-              error={errors.city}
-              autoComplete="address-level2"
-              required
-            />
+            {isPickup ? (
+              <p className="self-end rounded-2xl border border-line bg-ivory-100 p-4 text-xs leading-relaxed text-espresso-500 sm:col-span-2">
+                Pesanan diambil di toko, jadi alamat tidak perlu diisi. Detail
+                alamat dan jam ambil kami kirim lewat chat setelah pesanan
+                dibuat.
+              </p>
+            ) : (
+              <>
+                <Field
+                  label="Kode pos"
+                  value={postalCode}
+                  onChange={setPostalCode}
+                  error={errors.postalCode}
+                  autoComplete="postal-code"
+                  required
+                />
+                <div className="sm:col-span-2">
+                  <Field
+                    label="Alamat lengkap"
+                    value={addressLine}
+                    onChange={setAddressLine}
+                    error={errors.addressLine}
+                    hint="Jalan, nomor rumah, RT/RW, kelurahan."
+                    autoComplete="street-address"
+                    required
+                  />
+                </div>
+                <Field
+                  label="Kota atau kabupaten"
+                  value={city}
+                  onChange={setCity}
+                  error={errors.city}
+                  autoComplete="address-level2"
+                  required
+                />
+              </>
+            )}
             <div className="sm:col-span-2">
               <label
                 htmlFor="catatan-pesanan"
@@ -235,7 +348,7 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
             berpindah.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {methods.map((method) => {
+            {availablePayments.map((method) => {
               const selected = paymentMethod === method.value;
               return (
                 <label
@@ -264,6 +377,46 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
               );
             })}
           </div>
+
+          {paymentMethod === "BANK_TRANSFER" ? (
+            <div className="mt-5 border-t border-line pt-5">
+              <p className="text-sm font-medium">Pilih bank</p>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {banks.map((bank) => {
+                  const selected = bankName === bank;
+                  return (
+                    <label
+                      key={bank}
+                      className={`block cursor-pointer rounded-xl border px-3 py-3 text-center text-sm transition-colors focus-within:outline-2 focus-within:outline-clay-500 focus-within:outline-offset-2 ${
+                        selected
+                          ? "border-clay-500 bg-clay-50 font-medium"
+                          : "border-line bg-ivory-50 hover:border-espresso-700"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="bank"
+                        value={bank}
+                        checked={selected}
+                        onChange={() => setBankName(bank)}
+                        className="sr-only"
+                      />
+                      {bankLabels[bank]}
+                    </label>
+                  );
+                })}
+              </div>
+              {errors.bankName ? (
+                <p className="mt-2 text-xs text-clay-600">{errors.bankName}</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {errors.paymentMethod ? (
+            <p className="mt-3 text-xs text-clay-600">
+              {errors.paymentMethod}
+            </p>
+          ) : null}
         </fieldset>
       </div>
 
@@ -312,8 +465,22 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
               <dd>{formatIDR(subtotal)}</dd>
             </div>
             <div className="flex justify-between gap-4">
+              <dt className="text-espresso-500">Cara terima</dt>
+              <dd>{isPickup ? "Ambil di toko" : "Kurir"}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
               <dt className="text-espresso-500">Ongkos kirim</dt>
-              <dd>{shippingCost === 0 ? "Gratis" : formatIDR(shippingCost)}</dd>
+              <dd>
+                {isPickup
+                  ? "Tanpa ongkir"
+                  : shippingCost === 0
+                    ? "Gratis"
+                    : formatIDR(shippingCost)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-espresso-500">Pembayaran</dt>
+              <dd>{activePaymentLabel}</dd>
             </div>
             <div className="flex justify-between gap-4 border-t border-line pt-3 text-base font-medium">
               <dt>Total</dt>
@@ -330,7 +497,9 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
             {busy ? "Membuat pesanan..." : "Buat pesanan"}
           </Button>
           <p className="mt-3 text-center text-xs text-espresso-500">
-            Ongkir Rp 25.000, gratis untuk pesanan mulai Rp 1.000.000.
+            {isPickup
+              ? "Ambil di toko tanpa ongkir. Pembayaran bisa QRIS atau transfer."
+              : "Ongkir Rp 25.000, gratis untuk pesanan mulai Rp 1.000.000."}
           </p>
         </div>
       </aside>

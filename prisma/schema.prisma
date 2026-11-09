@@ -35,6 +35,19 @@ enum OrderStatus {
 enum PaymentMethod {
   QRIS
   BANK_TRANSFER
+  COD
+}
+
+enum BankName {
+  BCA
+  MANDIRI
+  BNI
+  BRI
+}
+
+enum FulfillmentType {
+  PICKUP
+  COURIER
 }
 
 enum PaymentStatus {
@@ -64,7 +77,8 @@ model User {
   id             String         @id @default(cuid())
   email          String         @unique
   name           String
-  passwordHash   String
+  passwordHash   String?
+  firebaseUid    String?        @unique
   role           Role           @default(CUSTOMER)
   phone          String?
   addressLine    String?
@@ -131,13 +145,15 @@ model ProductVariant {
 }
 
 model Order {
-  id               String        @id @default(cuid())
-  number           String        @unique
+  id               String          @id @default(cuid())
+  number           String          @unique
   userId           String
-  user             User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  status           OrderStatus   @default(PENDING_PAYMENT)
+  user             User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  status           OrderStatus     @default(PENDING_PAYMENT)
   paymentMethod    PaymentMethod
-  paymentStatus    PaymentStatus @default(UNPAID)
+  bankName         BankName?
+  fulfillmentType  FulfillmentType @default(COURIER)
+  paymentStatus    PaymentStatus   @default(UNPAID)
   subtotal         Int
   shippingCost     Int
   total            Int
@@ -153,13 +169,13 @@ model Order {
   proofName        String?
   proofUploadedAt  DateTime?
   adminNote        String?
-  stockRestored    Boolean       @default(false)
+  stockRestored    Boolean         @default(false)
   paidAt           DateTime?
   shippedAt        DateTime?
   completedAt      DateTime?
   cancelledAt      DateTime?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
   items            OrderItem[]
 
   @@index([userId])

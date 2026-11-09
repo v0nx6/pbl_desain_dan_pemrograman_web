@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 
-export function DeleteAccount() {
+export function DeleteAccount({ hasPassword }: { hasPassword: boolean }) {
   const router = useRouter();
   const [asking, setAsking] = useState(false);
   const [password, setPassword] = useState("");
@@ -42,6 +42,15 @@ export function DeleteAccount() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!hasPassword) {
+    return (
+      <p className="text-sm text-espresso-500">
+        Buat kata sandi dulu di bagian Ubah kata sandi sebelum menghapus akun
+        ini.
+      </p>
+    );
   }
 
   if (!asking) {

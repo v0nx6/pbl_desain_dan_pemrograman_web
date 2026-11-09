@@ -30,6 +30,7 @@ export async function POST(
         id: true,
         status: true,
         paymentStatus: true,
+        paymentMethod: true,
       },
     });
 

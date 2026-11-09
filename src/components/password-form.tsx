@@ -7,7 +7,7 @@ import { Field } from "@/components/ui/field";
 
 type FieldErrors = Record<string, string | undefined>;
 
-export function PasswordForm() {
+export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
   const router = useRouter();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -21,7 +21,7 @@ export function PasswordForm() {
     event.preventDefault();
 
     const local: FieldErrors = {};
-    if (!currentPassword) {
+    if (hasPassword && !currentPassword) {
       local.currentPassword = "Masukkan kata sandi saat ini.";
     }
     if (newPassword.length < 8) {
@@ -67,7 +67,11 @@ export function PasswordForm() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setNotice("Kata sandi berhasil diubah.");
+      setNotice(
+        hasPassword
+          ? "Kata sandi berhasil diubah."
+          : "Kata sandi berhasil dibuat. Sekarang kamu bisa masuk dengan email.",
+      );
       router.refresh();
     } catch {
       setError("Tidak bisa menghubungi server. Periksa koneksi lalu coba lagi.");
@@ -78,15 +82,22 @@ export function PasswordForm() {
 
   return (
     <form onSubmit={submit} noValidate className="space-y-5">
-      <Field
-        label="Kata sandi saat ini"
-        type="password"
-        value={currentPassword}
-        onChange={setCurrentPassword}
-        error={errors.currentPassword}
-        autoComplete="current-password"
-        required
-      />
+      {hasPassword ? (
+        <Field
+          label="Kata sandi saat ini"
+          type="password"
+          value={currentPassword}
+          onChange={setCurrentPassword}
+          error={errors.currentPassword}
+          autoComplete="current-password"
+          required
+        />
+      ) : (
+        <p className="rounded-2xl border border-line bg-ivory-100 p-4 text-sm text-espresso-500">
+          Akun ini masuk dengan Google. Buat kata sandi kalau kamu juga ingin
+          masuk pakai email.
+        </p>
+      )}
       <div className="grid gap-5 sm:grid-cols-2">
         <Field
           label="Kata sandi baru"
@@ -127,7 +138,11 @@ export function PasswordForm() {
       ) : null}
 
       <Button type="submit" size="lg" disabled={busy}>
-        {busy ? "Menyimpan..." : "Ubah kata sandi"}
+        {busy
+          ? "Menyimpan..."
+          : hasPassword
+            ? "Ubah kata sandi"
+            : "Buat kata sandi"}
       </Button>
     </form>
   );

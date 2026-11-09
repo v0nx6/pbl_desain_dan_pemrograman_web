@@ -141,28 +141,42 @@ export async function createOrder(userId: string, input: OrderInput) {
           });
         }
 
-        const shippingCost = calculateShipping(subtotal);
+        const shippingCost =
+          input.fulfillmentType === "PICKUP"
+            ? 0
+            : calculateShipping(subtotal);
         const total = subtotal + shippingCost;
         const number = generateOrderNumber();
+        const bankName =
+          input.paymentMethod === "BANK_TRANSFER"
+            ? (input.bankName ?? null)
+            : null;
         const paymentReference = generatePaymentReference(
           input.paymentMethod,
           number,
           total,
+          bankName,
         );
 
         return tx.order.create({
           data: {
             number,
             userId,
+            status:
+              input.paymentMethod === "COD"
+                ? "PROCESSING"
+                : "PENDING_PAYMENT",
             paymentMethod: input.paymentMethod,
+            bankName,
+            fulfillmentType: input.fulfillmentType,
             subtotal,
             shippingCost,
             total,
             recipientName: input.recipientName,
             phone: input.phone,
-            addressLine: input.addressLine,
-            city: input.city,
-            postalCode: input.postalCode,
+            addressLine: input.addressLine?.trim() || "",
+            city: input.city?.trim() || "",
+            postalCode: input.postalCode?.trim() || "",
             note: input.note?.trim() || null,
             paymentReference,
             items: { create: orderItems },
@@ -262,7 +276,19 @@ export async function transitionOrder(
       "Bukti pembayaran belum cocok. Silakan unggah ulang bukti transfer.";
   }
   if (action === "ship") data.shippedAt = new Date();
-  if (action === "complete") data.completedAt = new Date();
+  if (action === "complete") {
+    data.completedAt = new Date();
+
+    const current = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { paymentMethod: true, paidAt: true },
+    });
+
+    if (current?.paymentMethod === "COD") {
+      data.paymentStatus = "VERIFIED";
+      data.paidAt = current.paidAt ?? new Date();
+    }
+  }
 
   const result = await prisma.order.updateMany({
     where: { id: orderId, status: { in: pickup.from } },

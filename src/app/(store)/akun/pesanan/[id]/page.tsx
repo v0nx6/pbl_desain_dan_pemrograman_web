@@ -8,7 +8,13 @@ import { buttonStyles } from "@/components/ui/button";
 import { SectionLabel } from "@/components/ui/label";
 import { PaymentStatusText, StatusText } from "@/components/ui/status";
 import { requirePageUser } from "@/lib/auth";
-import { formatDateTime, formatIDR } from "@/lib/format";
+import {
+  bankLabels,
+  formatDateTime,
+  formatIDR,
+  fulfillmentLabels,
+  paymentMethodLabels,
+} from "@/lib/format";
 import { getOrderForUser } from "@/lib/order-queries";
 
 export const metadata = { title: "Detail pesanan" };
@@ -71,10 +77,15 @@ export default async function OrderDetailPage({
               <div className="flex justify-between gap-4">
                 <dt className="text-espresso-500">Metode</dt>
                 <dd>
-                  {order.paymentMethod === "QRIS"
-                    ? "QRIS (demo)"
-                    : "Transfer bank (demo)"}
+                  {paymentMethodLabels[order.paymentMethod]}
+                  {order.paymentMethod === "BANK_TRANSFER" && order.bankName
+                    ? ` ${bankLabels[order.bankName]}`
+                    : ""}
                 </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-espresso-500">Cara terima</dt>
+                <dd>{fulfillmentLabels[order.fulfillmentType]}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-espresso-500">Status bayar</dt>
@@ -106,22 +117,35 @@ export default async function OrderDetailPage({
                   Tidak dapat dipindai untuk pembayaran nyata.
                 </p>
               </div>
-            ) : (
+            ) : null}
+
+            {order.paymentMethod === "BANK_TRANSFER" ? (
               <div className="mt-4 rounded-2xl border border-line bg-ivory-100 p-4">
-                <p className="text-xs text-espresso-500">Nomor VA demo</p>
-                <p className="mt-1 font-mono text-lg tracking-wide">
+                <p className="text-xs text-espresso-500">
+                  Nomor VA demo{order.bankName ? ` ${bankLabels[order.bankName]}` : ""}
+                </p>
+                <p className="mt-1 font-mono text-lg tracking-wide break-all">
                   {order.paymentReference}
                 </p>
               </div>
-            )}
+            ) : null}
 
-            <div className="mt-6 border-t border-line pt-5">
-              <OrderProofUpload
-                orderId={order.id}
-                canUpload={order.canUploadProof}
-                proofName={order.proofName}
-              />
-            </div>
+            {order.paymentMethod === "COD" ? (
+              <p className="mt-4 rounded-2xl border border-line bg-ivory-100 p-4 text-sm leading-relaxed text-espresso-700">
+                Pesanan ini dibayar di tempat. Siapkan uang tunai sebesar{" "}
+                {formatIDR(order.total)} saat kurir datang.
+              </p>
+            ) : null}
+
+            {order.paymentMethod !== "COD" ? (
+              <div className="mt-6 border-t border-line pt-5">
+                <OrderProofUpload
+                  orderId={order.id}
+                  canUpload={order.canUploadProof}
+                  proofName={order.proofName}
+                />
+              </div>
+            ) : null}
 
             {order.canCancel ? (
               <div className="mt-6 border-t border-line pt-5">
@@ -156,9 +180,11 @@ export default async function OrderDetailPage({
               <div className="flex justify-between gap-4">
                 <dt className="text-espresso-500">Ongkos kirim</dt>
                 <dd>
-                  {order.shippingCost === 0
-                    ? "Gratis"
-                    : formatIDR(order.shippingCost)}
+                  {order.fulfillmentType === "PICKUP"
+                    ? "Tanpa ongkir"
+                    : order.shippingCost === 0
+                      ? "Gratis"
+                      : formatIDR(order.shippingCost)}
                 </dd>
               </div>
               <div className="flex justify-between gap-4 border-t border-line pt-3 text-base font-medium">
@@ -200,17 +226,35 @@ export default async function OrderDetailPage({
           </section>
 
           <section className="rounded-[var(--radius-card)] border border-line bg-ivory-50 p-5 sm:p-6">
-            <h2 className="font-display text-2xl">Dikirim ke</h2>
-            <address className="mt-3 space-y-1 text-sm not-italic">
-              <p className="font-medium">{order.recipientName}</p>
-              <p className="text-espresso-500">{order.phone}</p>
-              <p className="text-espresso-500">
-                {order.addressLine}, {order.city} {order.postalCode}
-              </p>
-              {order.note ? (
-                <p className="text-espresso-500">Catatan: {order.note}</p>
-              ) : null}
-            </address>
+            <h2 className="font-display text-2xl">
+              {order.fulfillmentType === "PICKUP"
+                ? "Ambil di toko"
+                : "Dikirim ke"}
+            </h2>
+            {order.fulfillmentType === "PICKUP" ? (
+              <div className="mt-3 space-y-1 text-sm">
+                <p className="font-medium">{order.recipientName}</p>
+                <p className="text-espresso-500">{order.phone}</p>
+                <p className="text-espresso-500 leading-relaxed">
+                  Alamat toko dan jam ambil kami kirim lewat chat setelah
+                  pesanan dibuat.
+                </p>
+                {order.note ? (
+                  <p className="text-espresso-500">Catatan: {order.note}</p>
+                ) : null}
+              </div>
+            ) : (
+              <address className="mt-3 space-y-1 text-sm not-italic">
+                <p className="font-medium">{order.recipientName}</p>
+                <p className="text-espresso-500">{order.phone}</p>
+                <p className="text-espresso-500">
+                  {order.addressLine}, {order.city} {order.postalCode}
+                </p>
+                {order.note ? (
+                  <p className="text-espresso-500">Catatan: {order.note}</p>
+                ) : null}
+              </address>
+            )}
           </section>
 
           <Link

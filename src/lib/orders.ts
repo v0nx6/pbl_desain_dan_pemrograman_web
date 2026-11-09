@@ -9,6 +9,7 @@ import type {
 } from "@prisma/client";
 import { createHash, randomBytes } from "node:crypto";
 import type {
+  BankName,
   OrderDetail,
   OrderItemView,
   OrderSummary,
@@ -37,14 +38,19 @@ export function generatePaymentReference(
   method: PaymentMethod,
   number: string,
   total: number,
+  bankName?: BankName | null,
 ): string {
   if (method === "QRIS") {
     return `DEMO-QRIS|${number}|${total}|BUKAN-PEMBAYARAN-NYATA`;
   }
 
+  if (method === "COD") {
+    return `COD|${number}|BAYAR-DI-TEMPAT`;
+  }
+
   const digest = createHash("sha256").update(number).digest("hex");
   const numeric = BigInt(`0x${digest.slice(0, 12)}`) % BigInt(1000000000000);
-  return `8808${numeric.toString().padStart(12, "0")}`;
+  return `${bankName ?? "BANK"}-8808${numeric.toString().padStart(12, "0")}`;
 }
 
 type OrderWithItems = Order & {
@@ -55,7 +61,10 @@ type OrderWithItems = Order & {
 export function canUploadProof(order: {
   status: Order["status"];
   paymentStatus: PaymentStatus;
+  paymentMethod: Order["paymentMethod"];
 }): boolean {
+  if (order.paymentMethod === "COD") return false;
+
   return (
     order.status === "PENDING_PAYMENT" ||
     order.status === "AWAITING_VERIFICATION" ||
@@ -93,6 +102,8 @@ export function toOrderSummary(order: OrderWithItems): OrderSummary {
     number: order.number,
     status: order.status,
     paymentMethod: order.paymentMethod,
+    bankName: order.bankName,
+    fulfillmentType: order.fulfillmentType,
     paymentStatus: order.paymentStatus,
     total: order.total,
     createdAt: order.createdAt.toISOString(),

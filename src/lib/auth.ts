@@ -36,6 +36,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
           postalCode: true,
           mapUrl: true,
           addressNote: true,
+          passwordHash: true,
         },
       },
     },
@@ -48,7 +49,8 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     return null;
   }
 
-  return session.user;
+  const { passwordHash, ...user } = session.user;
+  return { ...user, hasPassword: Boolean(passwordHash) };
 });
 
 export async function createSession(userId: string): Promise<void> {

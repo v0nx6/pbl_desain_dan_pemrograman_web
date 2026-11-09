@@ -5,7 +5,13 @@ import { notFound } from "next/navigation";
 import { AdminOrderActions } from "@/components/admin/order-actions";
 import { PaymentStatusText, StatusText } from "@/components/ui/status";
 import { requireAdminPage } from "@/lib/auth";
-import { formatDateTime, formatIDR } from "@/lib/format";
+import {
+  bankLabels,
+  formatDateTime,
+  formatIDR,
+  fulfillmentLabels,
+  paymentMethodLabels,
+} from "@/lib/format";
 import { getOrderForAdmin } from "@/lib/order-queries";
 
 export const metadata = { title: "Detail pesanan admin" };
@@ -67,18 +73,34 @@ export default async function AdminOrderDetailPage({
                 <dd>{order.recipientName}</dd>
               </div>
               <div className="flex justify-between gap-4">
+                <dt className="text-espresso-500">Cara terima</dt>
+                <dd>{fulfillmentLabels[order.fulfillmentType]}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
                 <dt className="text-espresso-500">Telepon</dt>
                 <dd>{order.phone}</dd>
               </div>
             </dl>
-            <address className="mt-3 rounded-2xl bg-ivory-100 p-4 text-sm not-italic text-espresso-700">
-              {order.addressLine}, {order.city} {order.postalCode}
-              {order.note ? (
-                <span className="mt-1 block text-espresso-500">
-                  Catatan: {order.note}
-                </span>
-              ) : null}
-            </address>
+            {order.fulfillmentType === "PICKUP" ? (
+              <p className="mt-3 rounded-2xl bg-ivory-100 p-4 text-sm text-espresso-700">
+                Ambil di toko. Alamat dan jam ambil dikirim ke pelanggan lewat
+                chat.
+                {order.note ? (
+                  <span className="mt-1 block text-espresso-500">
+                    Catatan: {order.note}
+                  </span>
+                ) : null}
+              </p>
+            ) : (
+              <address className="mt-3 rounded-2xl bg-ivory-100 p-4 text-sm not-italic text-espresso-700">
+                {order.addressLine}, {order.city} {order.postalCode}
+                {order.note ? (
+                  <span className="mt-1 block text-espresso-500">
+                    Catatan: {order.note}
+                  </span>
+                ) : null}
+              </address>
+            )}
           </section>
 
           <section className="rounded-3xl bg-ivory-50 p-5 sm:p-6">
@@ -107,9 +129,11 @@ export default async function AdminOrderDetailPage({
               <div className="flex justify-between gap-4">
                 <dt className="text-espresso-500">Ongkos kirim</dt>
                 <dd>
-                  {order.shippingCost === 0
-                    ? "Gratis"
-                    : formatIDR(order.shippingCost)}
+                  {order.fulfillmentType === "PICKUP"
+                    ? "Tanpa ongkir"
+                    : order.shippingCost === 0
+                      ? "Gratis"
+                      : formatIDR(order.shippingCost)}
                 </dd>
               </div>
               <div className="flex justify-between gap-4 border-t border-line pt-3 text-base font-medium">
@@ -125,14 +149,15 @@ export default async function AdminOrderDetailPage({
               <div className="flex justify-between gap-4">
                 <dt className="text-espresso-500">Metode</dt>
                 <dd>
-                  {order.paymentMethod === "QRIS"
-                    ? "QRIS (demo)"
-                    : "Transfer bank (demo)"}
+                  {paymentMethodLabels[order.paymentMethod]}
+                  {order.paymentMethod === "BANK_TRANSFER" && order.bankName
+                    ? ` ${bankLabels[order.bankName]}`
+                    : ""}
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-espresso-500">Referensi</dt>
-                <dd className="font-mono text-xs">
+                <dd className="font-mono text-xs break-all">
                   {order.paymentReference}
                 </dd>
               </div>
@@ -142,7 +167,13 @@ export default async function AdminOrderDetailPage({
               </div>
             </dl>
 
-            {order.proofName ? (
+            {order.paymentMethod === "COD" ? (
+              <p className="mt-4 rounded-2xl bg-ivory-100 p-4 text-sm text-espresso-700">
+                Pesanan COD. Pembayaran diterima saat kurir menyerahkan paket.
+                Status bayar otomatis jadi terverifikasi setelah pesanan
+                ditandai selesai.
+              </p>
+            ) : order.proofName ? (
               <div className="mt-4">
                 <img
                   src={`/api/orders/${order.id}/proof`}

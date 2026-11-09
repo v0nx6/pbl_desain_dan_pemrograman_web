@@ -24,7 +24,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     rateLimit(`login-email:${email}`, 10, 15 * 60 * 1000);
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !(await verifyPassword(body.password, user.passwordHash))) {
+    if (
+      !user?.passwordHash ||
+      !(await verifyPassword(body.password, user.passwordHash))
+    ) {
       throw new ApiError(401, "Email atau kata sandi tidak cocok.");
     }
 

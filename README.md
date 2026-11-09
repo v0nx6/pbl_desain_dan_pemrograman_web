@@ -24,9 +24,13 @@ Hugging Face Space.
 
 - Catalog with collection filters (`baru`, `batik`, `kebaya`) plus shopper
   filters for size, single or couple, price range, best seller, and new
-  products. Product detail, size/stock selection, cart, checkout, QRIS or
-  bank-transfer payment, payment proof upload, and an order timeline.
-- Registration, login, logout, and session cookies.
+  products. Product detail, size/stock selection, cart, checkout, QRIS,
+  bank transfer (BCA, Mandiri, BNI, BRI), or COD payment, payment proof
+  upload, and an order timeline.
+- Checkout chooses between courier delivery and picking the order up at the
+  store. Pickup orders have no shipping cost.
+- Registration, login, logout, Google sign-in through Firebase, and session
+  cookies.
 - **Signup address details**: name, email, password, phone number, street
   address, and an optional address description.
 - **Integrated OpenStreetMap preview**: the customer searches for a location,
@@ -35,8 +39,8 @@ Hugging Face Space.
   needed.
 - **Profile CRUD** at `/akun/profil`: update name, email, phone, shipping
   address, and address description; clear the address; change password; delete
-  the account. Account deletion anonymizes the profile but keeps order history
-  for the admin.
+  the account; and open the chat from a shortcut button. Account deletion
+  anonymizes the profile but keeps order history for the admin.
 - Checkout prefills the saved phone and address.
 
 ### Admin back office
@@ -165,8 +169,51 @@ For multi-instance deployments, mount a writable persistent volume at
 | `FASHN_TIMEOUT_MS` | no | Queue + inference + download budget, default `100000` |
 | `DATA_DIR` | no | Upload/result directory, default `./.data` |
 | `POSTGRES_*` | Docker only | Credentials consumed by `compose.yml` |
+| `NEXT_PUBLIC_FIREBASE_*` | no | Firebase web app config; hides the Google button when empty |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | no | Firebase service account for server-side ID token verification |
 
 Never commit `.env`, `.data/`, tokens, or real passwords.
+
+## Google sign-in with Firebase
+
+Google sign-in uses Firebase Authentication. Firebase runs the Google flow, the
+server verifies the Firebase ID token with the Admin SDK, and the app then
+creates its normal session cookie. Products, orders, and finance data stay in
+PostgreSQL.
+
+### Firebase console setup
+
+1. Open `https://console.firebase.google.com` and create a project.
+2. Open **Project settings > General > Your apps** and add a **Web app**.
+3. Copy the web app config values into the `NEXT_PUBLIC_FIREBASE_*` variables.
+4. Open **Authentication > Sign-in method**, enable **Google**, and choose a
+   support email.
+5. Open **Authentication > Settings > Authorized domains** and make sure
+   `localhost` is listed. Add the staging or production domain later.
+6. Open **Project settings > Service accounts**, click **Generate new private
+   key**, and download the JSON file.
+7. Copy `project_id`, `client_email`, and `private_key` from that JSON into
+   `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
+   `FIREBASE_PRIVATE_KEY`. Keep the quotes around the private key and write the
+   line breaks as `\n`.
+
+Leave the Firebase values empty to keep the Google button hidden. Email and
+password login still works without Firebase.
+
+### How the login flow works
+
+1. The browser signs in with the Firebase Google provider.
+2. The browser sends the Firebase ID token to `/api/auth/firebase`.
+3. The server verifies the token, checks that the email is verified, and only
+   accepts the `google.com` provider.
+4. The server finds the account by `firebaseUid`, links an existing account by
+   verified email, or creates a new customer with no password.
+5. The server creates the usual opaque session cookie.
+6. New Google users without a phone or address are sent to
+   `/akun/profil?lengkapi=alamat`.
+
+Google-only accounts can set a password later from the profile page. Until then
+they cannot log in with email or delete the account with a password.
 
 ## Project map
 
@@ -244,6 +291,13 @@ src/app/(store)/produk/[slug]/page.tsx product metadata + Product JSON-LD
     new product, including the empty state.
   - Admin site image upload, rotating homepage photos, and reset to the
     default.
+- The Firebase and checkout suite passed 15 of 15 checks, covering:
+  - The Google button staying hidden while Firebase is not configured.
+  - The chat shortcut on the customer profile.
+  - Courier and pickup choice on checkout, including address fields that
+    disappear for pickup and COD that is only offered for courier.
+  - The four bank choices for bank transfer and a pickup order created end to
+    end with BRI.
 
 ## Map setup
 
@@ -258,7 +312,8 @@ high-traffic deployment, point `NOMINATIM_URL` at your own Nominatim instance.
   of faking a result. `FASHN_TIMEOUT_MS` may need lowering to `55000` on hosts
   with a 60-second request cap.
 - Payments are simulated. QRIS contains `BUKAN-PEMBAYARAN-NYATA`; bank transfer
-  uses a demo virtual account. An admin verifies proofs manually.
+  uses a demo virtual account with a bank prefix. COD orders skip proof upload
+  and become paid when the admin marks them complete.
 - Chat is a local demo, clearly labeled `Contoh data`.
 - Rate limiting is in memory per process; a multi-instance deployment needs a
   shared store.

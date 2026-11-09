@@ -37,6 +37,12 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Masukkan kata sandi."),
 });
 
+export const firebaseLoginSchema = z.object({
+  idToken: z
+    .string({ error: "Token Google tidak ditemukan." })
+    .min(20, "Token Google tidak valid."),
+});
+
 export const profileUpdateSchema = z.object({
   name: z
     .string()
@@ -73,7 +79,7 @@ export const profileUpdateSchema = z.object({
 
 export const passwordChangeSchema = z
   .object({
-    currentPassword: z.string().min(1, "Masukkan kata sandi saat ini."),
+    currentPassword: z.string().max(200).optional().default(""),
     newPassword: z
       .string()
       .min(8, "Kata sandi baru minimal 8 karakter.")
@@ -173,43 +179,84 @@ export const productSchema = z.object({
   active: z.boolean().default(true),
 });
 
-export const orderCreateSchema = z.object({
-  items: z
-    .array(
-      z.object({
-        slug: z.string().trim().min(1),
-        size: z.string().trim().min(1),
-        qty: z.coerce.number().int().min(1).max(99),
-      }),
-    )
-    .min(1, "Keranjang masih kosong.")
-    .max(50, "Terlalu banyak baris pesanan."),
-  recipientName: z
-    .string()
-    .trim()
-    .min(2, "Nama penerima minimal 2 karakter.")
-    .max(100, "Nama penerima maksimal 100 karakter."),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^[0-9+\-\s()]{8,20}$/, "Masukkan nomor telepon yang valid."),
-  addressLine: z
-    .string()
-    .trim()
-    .min(8, "Alamat minimal 8 karakter.")
-    .max(300, "Alamat maksimal 300 karakter."),
-  city: z
-    .string()
-    .trim()
-    .min(2, "Kota minimal 2 karakter.")
-    .max(100, "Kota maksimal 100 karakter."),
-  postalCode: z
-    .string()
-    .trim()
-    .regex(/^[0-9]{5}$/, "Kode pos terdiri dari 5 angka."),
-  note: z.string().trim().max(500, "Catatan maksimal 500 karakter.").optional(),
-  paymentMethod: z.enum(["QRIS", "BANK_TRANSFER"]),
-});
+export const orderCreateSchema = z
+  .object({
+    items: z
+      .array(
+        z.object({
+          slug: z.string().trim().min(1),
+          size: z.string().trim().min(1),
+          qty: z.coerce.number().int().min(1).max(99),
+        }),
+      )
+      .min(1, "Keranjang masih kosong.")
+      .max(50, "Terlalu banyak baris pesanan."),
+    recipientName: z
+      .string()
+      .trim()
+      .min(2, "Nama penerima minimal 2 karakter.")
+      .max(100, "Nama penerima maksimal 100 karakter."),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^[0-9+\-\s()]{8,20}$/, "Masukkan nomor telepon yang valid."),
+    fulfillmentType: z.enum(["PICKUP", "COURIER"], {
+      error: "Pilih mau ambil di toko atau dikirim kurir.",
+    }),
+    addressLine: z.string().trim().max(300).optional(),
+    city: z.string().trim().max(100).optional(),
+    postalCode: z.string().trim().max(10).optional(),
+    note: z
+      .string()
+      .trim()
+      .max(500, "Catatan maksimal 500 karakter.")
+      .optional(),
+    paymentMethod: z.enum(["QRIS", "BANK_TRANSFER", "COD"], {
+      error: "Pilih cara pembayaran.",
+    }),
+    bankName: z.enum(["BCA", "MANDIRI", "BNI", "BRI"]).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.fulfillmentType === "COURIER") {
+      if (!value.addressLine || value.addressLine.length < 8) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["addressLine"],
+          message: "Alamat minimal 8 karakter.",
+        });
+      }
+      if (!value.city || value.city.length < 2) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["city"],
+          message: "Kota minimal 2 karakter.",
+        });
+      }
+      if (!value.postalCode || !/^[0-9]{5}$/.test(value.postalCode)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["postalCode"],
+          message: "Kode pos terdiri dari 5 angka.",
+        });
+      }
+    }
+
+    if (value.paymentMethod === "COD" && value.fulfillmentType === "PICKUP") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["paymentMethod"],
+        message: "COD hanya untuk pesanan yang dikirim kurir.",
+      });
+    }
+
+    if (value.paymentMethod === "BANK_TRANSFER" && !value.bankName) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["bankName"],
+        message: "Pilih bank untuk transfer.",
+      });
+    }
+  });
 
 export const orderActionSchema = z.object({
   action: z.enum([
