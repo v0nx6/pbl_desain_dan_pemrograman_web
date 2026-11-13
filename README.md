@@ -31,6 +31,10 @@ Hugging Face Space.
   store. Pickup orders have no shipping cost.
 - Registration, login, logout, Google sign-in through Firebase, and session
   cookies.
+- **Password reset with email OTP** at `/lupa-sandi`: the customer enters an
+  email, receives a 6-digit code, verifies the code, then sets a new password.
+  A successful reset signs out every old session. In development without SMTP
+  credentials the code is printed in the server log.
 - **Signup address details**: name, email, password, phone number, street
   address, and an optional address description.
 - **Integrated OpenStreetMap preview**: the customer searches for a location,
@@ -42,6 +46,9 @@ Hugging Face Space.
   the account; and open the chat from a shortcut button. Account deletion
   anonymizes the profile but keeps order history for the admin.
 - Checkout prefills the saved phone and address.
+- **Product reviews** at the bottom of each product page: 1-5 stars, an
+  optional comment, and up to three photos. Reviews are separate per product,
+  require a logged-in account, and allow one review per customer per product.
 
 ### Admin back office
 
@@ -65,6 +72,9 @@ Hugging Face Space.
   income or expense entries with a category, description, amount, and date.
   The page shows manual cash-flow totals, a manual balance, and verified order
   revenue kept separate so the same sale is not counted twice.
+- **Revenue CSV export** from `/admin/keuangan`: downloads every verified order
+  (paid, processing, shipped, completed) with order number, date, customer,
+  payment method, fulfillment, status, subtotal, shipping, and total.
 
 ### AI Virtual Try-On
 
@@ -171,8 +181,41 @@ For multi-instance deployments, mount a writable persistent volume at
 | `POSTGRES_*` | Docker only | Credentials consumed by `compose.yml` |
 | `NEXT_PUBLIC_FIREBASE_*` | no | Firebase web app config; hides the Google button when empty |
 | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | no | Firebase service account for server-side ID token verification |
+| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | for password reset | Gmail account and app password used to send OTP emails |
+| `MAIL_FROM` | no | From header for OTP emails; defaults to `Boutique NC <GMAIL_USER>` |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | no | Override the SMTP server; defaults to `smtp.gmail.com:465` with TLS |
 
 Never commit `.env`, `.data/`, tokens, or real passwords.
+
+## Password reset email (Gmail SMTP)
+
+Password reset sends a 6-digit one-time code by email through Gmail SMTP. The
+code is stored only as a scrypt hash, expires after 10 minutes, allows five
+wrong attempts, and can be used once.
+
+### Gmail setup
+
+1. Open the Google Account for the sender address.
+2. Enable **2-Step Verification** under **Security**. App passwords require it.
+3. Open `https://myaccount.google.com/apppasswords`, create an app password for
+   "Mail", and copy the 16-character value.
+4. Put the Gmail address in `GMAIL_USER` and the app password in
+   `GMAIL_APP_PASSWORD`. Do not use the normal Gmail password.
+5. Optionally set `MAIL_FROM`, for example
+   `Boutique NC <toko@example.com>`. It must be a sender the account may use.
+
+Leave both values empty in development to print the OTP to the server console
+instead of sending mail. In production, a missing configuration returns HTTP
+503 so a reset is never silently lost.
+
+### Reset flow
+
+1. `/lupa-sandi` sends the email to `POST /api/auth/forgot/request`. The reply is
+   always generic, so the form does not reveal which emails are registered.
+2. `POST /api/auth/forgot/verify` checks the code and sets a short-lived
+   HttpOnly `boutique_reset` cookie.
+3. `POST /api/auth/forgot/reset` saves the new password, deletes all sessions
+   for that account, and clears the reset cookie.
 
 ## Google sign-in with Firebase
 
@@ -291,6 +334,16 @@ src/app/(store)/produk/[slug]/page.tsx product metadata + Product JSON-LD
     new product, including the empty state.
   - Admin site image upload, rotating homepage photos, and reset to the
     default.
+- The password reset, review, and CSV suite passed these checks:
+  - OTP request returns a generic reply for known and unknown emails.
+  - A wrong OTP is rejected and the correct OTP sets the reset cookie.
+  - The reset cookie is single-use, the password changes, and old sessions
+    stop working.
+  - Review submission requires login, rejects a second review for the same
+    product, and keeps reviews isolated per product.
+  - Review photos are served publicly while traversal paths return 404.
+  - CSV export returns the verified-order columns and rows, with the customer
+    and anonymous requests rejected.
 - The Firebase and checkout suite passed 15 of 15 checks, covering:
   - The Google button staying hidden while Firebase is not configured.
   - The chat shortcut on the customer profile.

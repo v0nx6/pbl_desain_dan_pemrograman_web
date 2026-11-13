@@ -37,6 +37,46 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Masukkan kata sandi."),
 });
 
+export const forgotPasswordRequestSchema = z.object({
+  email: z.email("Masukkan alamat email yang valid."),
+});
+
+export const forgotPasswordVerifySchema = z.object({
+  email: z.email("Masukkan alamat email yang valid."),
+  code: z
+    .string({ error: "Masukkan kode OTP." })
+    .trim()
+    .regex(/^[0-9]{6}$/, "Kode OTP terdiri dari 6 angka."),
+});
+
+export const passwordResetSchema = z
+  .object({
+    password: z
+      .string({ error: "Masukkan kata sandi baru." })
+      .min(8, "Kata sandi baru minimal 8 karakter.")
+      .max(200, "Kata sandi terlalu panjang."),
+    confirmPassword: z
+      .string({ error: "Ulangi kata sandi baru." })
+      .min(1, "Ulangi kata sandi baru."),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Konfirmasi kata sandi tidak sama.",
+    path: ["confirmPassword"],
+  });
+
+export const reviewCreateSchema = z.object({
+  rating: z.coerce
+    .number({ error: "Pilih jumlah bintang." })
+    .int("Jumlah bintang harus bilangan bulat.")
+    .min(1, "Pilih minimal 1 bintang.")
+    .max(5, "Jumlah bintang maksimal 5."),
+  comment: z
+    .string({ error: "Tulis ulasan dulu." })
+    .trim()
+    .min(3, "Ulasan minimal 3 karakter.")
+    .max(1000, "Ulasan maksimal 1000 karakter."),
+});
+
 export const firebaseLoginSchema = z.object({
   idToken: z
     .string({ error: "Token Google tidak ditemukan." })

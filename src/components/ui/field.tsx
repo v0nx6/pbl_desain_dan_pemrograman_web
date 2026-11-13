@@ -11,6 +11,7 @@ type FieldProps = {
   error?: string;
   hint?: string;
   autoComplete?: string;
+  inputMode?: "text" | "numeric" | "tel" | "email";
   required?: boolean;
 };
 
@@ -23,6 +24,7 @@ export function Field({
   error,
   hint,
   autoComplete,
+  inputMode,
   required = false,
 }: FieldProps) {
   const id = useId();
@@ -43,6 +45,7 @@ export function Field({
         value={value}
         required={required}
         autoComplete={autoComplete}
+        inputMode={inputMode}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy || undefined}
         onChange={(event) => onChange(event.target.value)}

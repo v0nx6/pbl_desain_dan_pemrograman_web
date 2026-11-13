@@ -141,6 +141,27 @@ export type OrderDetail = OrderSummary & {
   canCancel: boolean;
 };
 
+export type ReviewPhotoView = {
+  id: string;
+  url: string;
+  name: string;
+};
+
+export type ReviewView = {
+  id: string;
+  rating: number;
+  comment: string;
+  authorName: string;
+  createdAt: string;
+  photos: ReviewPhotoView[];
+  isMine: boolean;
+};
+
+export type ReviewSummary = {
+  average: number;
+  count: number;
+};
+
 export type ChatMessage = {
   id: string;
   from: "user" | "admin";

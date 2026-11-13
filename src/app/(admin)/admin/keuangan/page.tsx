@@ -1,4 +1,5 @@
 import { FinanceManager } from "@/components/admin/finance-manager";
+import { buttonStyles } from "@/components/ui/button";
 import { requireAdminPage } from "@/lib/auth";
 import { getFinanceSummary, listFinanceEntries } from "@/lib/finance";
 
@@ -28,6 +29,13 @@ export default async function FinancePage() {
             Catat pemasukan dan pengeluaran manual, lalu pantau saldo toko.
           </p>
         </div>
+        <a
+          href="/api/admin/finance/export"
+          className={buttonStyles({ variant: "secondary" })}
+          download
+        >
+          Unduh CSV pendapatan
+        </a>
       </div>
 
       <FinanceManager

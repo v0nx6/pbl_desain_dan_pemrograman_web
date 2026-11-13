@@ -11,7 +11,7 @@ const DATA_DIR = path.resolve(
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 
-const kinds = new Set(["proofs", "tryon", "results", "products"]);
+const kinds = new Set(["proofs", "tryon", "results", "products", "reviews"]);
 
 const PRODUCT_IMAGE_PREFIX = "/api/product-image/";
 
@@ -23,7 +23,7 @@ const mimeExtensions: Record<string, string> = {
 
 const allowedExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
-export type UploadKind = "proofs" | "tryon" | "results" | "products";
+export type UploadKind = "proofs" | "tryon" | "results" | "products" | "reviews";
 
 export async function saveUpload(
   file: File,
@@ -77,6 +77,32 @@ export async function saveBuffer(
   const filename = `${randomUUID()}${safeExtension.toLowerCase()}`;
   await writeFile(path.join(directory, filename), buffer);
   return `${kind}/${filename}`;
+}
+
+export async function deleteStored(relativePath: string): Promise<void> {
+  try {
+    const [kind, filename, extra] = relativePath.split("/");
+    if (
+      extra !== undefined ||
+      !kinds.has(kind) ||
+      !filename ||
+      !allowedExtensions.has(path.extname(filename).toLowerCase())
+    ) {
+      return;
+    }
+
+    const full = path.resolve(DATA_DIR, kind, filename);
+    const root = path.resolve(DATA_DIR, kind);
+    if (!full.startsWith(`${root}${path.sep}`)) return;
+
+    await unlink(full).catch(() => {});
+  } catch {
+    // Ignore cleanup errors so the main request can still finish.
+  }
+}
+
+export function isStoredReviewImage(name: string): boolean {
+  return /^[a-f0-9-]{36}\.(?:jpe?g|png|webp)$/i.test(name) && path.basename(name) === name;
 }
 
 export async function readStored(relativePath: string): Promise<Buffer> {

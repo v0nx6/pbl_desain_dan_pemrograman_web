@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BuyPanel } from "@/components/product-buy-panel";
+import { ProductReviews } from "@/components/product-reviews";
 import { buttonStyles } from "@/components/ui/button";
 import { ProductMedia } from "@/components/ui/product-media";
+import { getCurrentUser } from "@/lib/auth";
 import { getProductBySlug } from "@/lib/catalog";
 import { formatIDR } from "@/lib/format";
+import { getProductReviews } from "@/lib/reviews";
 import { absoluteUrl } from "@/lib/seo";
 
 export async function generateMetadata({
@@ -56,6 +59,12 @@ export default async function ProductPage({
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
+  const viewer = await getCurrentUser();
+  const { reviews, summary, hasReviewed } = await getProductReviews(
+    product.id,
+    viewer?.id,
+  );
+
   const productUrl = absoluteUrl(`/produk/${product.slug}`);
   const inStock = Object.values(product.stockBySize).some((stock) => stock > 0);
   const jsonLd = {
@@ -77,6 +86,15 @@ export default async function ProductPage({
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
     },
+    ...(summary.count > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: summary.average.toFixed(1),
+            reviewCount: summary.count,
+          },
+        }
+      : {}),
   };
 
   return (
@@ -149,6 +167,15 @@ export default async function ProductPage({
           </dl>
         </div>
       </div>
+
+      <ProductReviews
+        productId={product.id}
+        productSlug={product.slug}
+        reviews={reviews}
+        summary={summary}
+        hasReviewed={hasReviewed}
+        isLoggedIn={Boolean(viewer)}
+      />
     </div>
   );
 }

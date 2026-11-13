@@ -217,6 +217,16 @@ export function AuthForm({
         <Button type="submit" size="lg" className="w-full" disabled={busy}>
           {busy ? text.busy : text.submit}
         </Button>
+        {mode === "masuk" ? (
+          <p className="text-center text-sm">
+            <Link
+              href="/lupa-sandi"
+              className="text-espresso-500 underline underline-offset-4 hover:text-clay-500"
+            >
+              Lupa kata sandi?
+            </Link>
+          </p>
+        ) : null}
       </form>
 
       {notice ? (

@@ -92,6 +92,7 @@ model User {
   orders         Order[]
   tryOnJobs      TryOnJob[]
   financeEntries FinanceEntry[]
+  reviews        Review[]
 }
 
 model Session {
@@ -127,6 +128,7 @@ model Product {
   variants       ProductVariant[]
   orderItems     OrderItem[]
   tryOnJobs      TryOnJob[]
+  reviews        Review[]
 
   @@index([active])
 }
@@ -213,6 +215,49 @@ model FinanceEntry {
 
   @@index([occurredAt])
   @@index([type])
+}
+
+model Review {
+  id        String        @id @default(cuid())
+  productId String
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String
+  photos    ReviewPhoto[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([productId, userId])
+  @@index([productId, createdAt])
+}
+
+model ReviewPhoto {
+  id        String   @id @default(cuid())
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  path      String
+  mime      String
+  name      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([reviewId])
+}
+
+model PasswordReset {
+  id         String    @id @default(cuid())
+  email      String
+  codeHash   String
+  tokenHash  String?   @unique
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, createdAt])
 }
 
 model SiteImage {
