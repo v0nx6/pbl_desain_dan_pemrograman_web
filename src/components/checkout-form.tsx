@@ -54,12 +54,12 @@ const paymentOptions: {
   {
     value: "QRIS",
     label: "QRIS",
-    hint: "Kode QR demo tampil setelah pesanan dibuat.",
+    hint: "Kode QRIS tampil setelah pesanan dibuat.",
   },
   {
     value: "BANK_TRANSFER",
     label: "Transfer bank",
-    hint: "Pilih bank, nomor VA demo tampil setelah pesanan dibuat.",
+    hint: "Pilih bank, nomor VA tampil setelah pesanan dibuat.",
   },
   {
     value: "COD",
@@ -344,8 +344,7 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
         <fieldset className="rounded-[var(--radius-card)] border border-line bg-ivory-50 p-5 sm:p-6">
           <legend className="px-1 font-display text-2xl">Pembayaran</legend>
           <p className="mt-2 text-sm text-espresso-500">
-            Semua pembayaran di demo ini disimulasikan. Tidak ada uang yang
-            berpindah.
+            Pembayaran akan dicek oleh admin sebelum pesanan diproses.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {availablePayments.map((method) => {

@@ -15,6 +15,7 @@ const nav = [
   { href: "/?kategori=baru#koleksi", label: "Baru" },
   { href: "/?kategori=batik#koleksi", label: "Batik" },
   { href: "/?kategori=kebaya#koleksi", label: "Kebaya" },
+  { href: "/?kategori=priya#koleksi", label: "Pria" },
 ];
 
 function Wordmark({ light = false }: { light?: boolean }) {

@@ -5,6 +5,7 @@ const collections = [
   { href: "/?kategori=baru#koleksi", label: "Baru" },
   { href: "/?kategori=batik#koleksi", label: "Batik" },
   { href: "/?kategori=kebaya#koleksi", label: "Kebaya" },
+  { href: "/?kategori=priya#koleksi", label: "Pria" },
 ];
 
 const services = [
@@ -68,7 +69,7 @@ export function SiteFooter() {
 
         <div className="mt-14 flex flex-col gap-3 border-t border-ivory-50/15 pt-6 text-xs text-ivory-100/45 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Boutique NC.</p>
-          <p>Data produk di demo ini cuma contoh.</p>
+          <p>Kebaya, batik, dan tenun pilihan.</p>
         </div>
       </div>
     </footer>

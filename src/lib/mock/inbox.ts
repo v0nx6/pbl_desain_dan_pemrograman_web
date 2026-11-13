@@ -1,6 +1,6 @@
 import type { ChatMessage, ChatThread } from "@/lib/types";
 
-// SAMPLE DATA. Chat is a local demo only. Customer names stay as placeholders
+// SAMPLE DATA. Chat is stored locally only. Customer names stay as placeholders
 // on purpose: no invented people.
 export const chatThreads: ChatThread[] = [
   {

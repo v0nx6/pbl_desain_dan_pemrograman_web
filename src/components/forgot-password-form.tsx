@@ -43,6 +43,7 @@ export function ForgotPasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState<string | null>(null);
+  const [developmentCode, setDevelopmentCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -55,6 +56,7 @@ export function ForgotPasswordForm() {
     setErrors(local);
     setError(null);
     setNotice(null);
+    setDevelopmentCode(null);
     if (Object.keys(local).length > 0) return;
 
     setBusy(true);
@@ -67,6 +69,7 @@ export function ForgotPasswordForm() {
       const data = (await response.json().catch(() => ({}))) as {
         error?: string;
         message?: string;
+        developmentCode?: string;
         details?: Record<string, string[] | undefined>;
       };
 
@@ -78,6 +81,7 @@ export function ForgotPasswordForm() {
       setCode("");
       setStep("code");
       setNotice(data.message ?? "Kode OTP sudah dikirim ke email kamu.");
+      setDevelopmentCode(data.developmentCode ?? null);
     } catch {
       setError("Tidak bisa menghubungi server. Periksa koneksi lalu coba lagi.");
     } finally {
@@ -239,6 +243,7 @@ export function ForgotPasswordForm() {
                 setCode("");
                 setError(null);
                 setNotice(null);
+                setDevelopmentCode(null);
               }}
               className="text-espresso-900 underline underline-offset-4 hover:text-clay-500"
             >
@@ -298,12 +303,20 @@ export function ForgotPasswordForm() {
       ) : null}
 
       {notice ? (
-        <p
+        <div
           role="status"
           className="mt-5 rounded-2xl border border-line bg-ivory-50 p-4 text-sm text-espresso-700"
         >
-          {notice}
-        </p>
+          <p>{notice}</p>
+          {developmentCode ? (
+            <p className="mt-2">
+              Mode pengembangan, email belum diatur. Kode OTP kamu:{" "}
+              <span className="font-medium tracking-[0.2em] text-espresso-900">
+                {developmentCode}
+              </span>
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       {error ? (

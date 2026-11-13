@@ -100,15 +100,15 @@ export default async function OrderDetailPage({
             </dl>
 
             <p className="mt-4 rounded-xl border border-amber-700/40 bg-ivory-100 p-3 text-xs leading-relaxed text-amber-700">
-              Pembayaran disimulasikan untuk demo. Jangan mengirim uang sungguhan.
+              Pembayaran akan dicek oleh admin sebelum pesanan diproses.
             </p>
 
             {order.paymentMethod === "QRIS" ? (
               <div className="mt-4 rounded-2xl border border-line bg-white p-4 text-center">
-                <p className="text-sm font-medium">Kode QRIS demo</p>
+                <p className="text-sm font-medium">Kode QRIS</p>
                 <img
                   src={`/api/orders/${order.id}/qris`}
-                  alt={`Kode QRIS demo untuk pesanan ${order.number}`}
+                  alt={`Kode QRIS untuk pesanan ${order.number}`}
                   width={220}
                   height={220}
                   className="mx-auto mt-3 size-[220px]"
@@ -122,7 +122,7 @@ export default async function OrderDetailPage({
             {order.paymentMethod === "BANK_TRANSFER" ? (
               <div className="mt-4 rounded-2xl border border-line bg-ivory-100 p-4">
                 <p className="text-xs text-espresso-500">
-                  Nomor VA demo{order.bankName ? ` ${bankLabels[order.bankName]}` : ""}
+                  Nomor VA{order.bankName ? ` ${bankLabels[order.bankName]}` : ""}
                 </p>
                 <p className="mt-1 font-mono text-lg tracking-wide break-all">
                   {order.paymentReference}

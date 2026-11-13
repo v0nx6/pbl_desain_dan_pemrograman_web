@@ -52,7 +52,7 @@ export default function ChatPage() {
           <p className="truncate font-medium">Admin Boutique NC</p>
           <p className="flex items-center gap-1.5 text-xs text-sage-700">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-sage-700" />
-            Demo, belum tersambung
+            Chat lokal
           </p>
         </div>
       </header>
@@ -168,7 +168,7 @@ export default function ChatPage() {
           </form>
         </div>
         <p className="mt-2 text-center text-[11px] text-espresso-500">
-          Demo: pesan hanya tersimpan di perangkat ini.
+          Pesan hanya tersimpan di perangkat ini.
         </p>
       </div>
     </div>

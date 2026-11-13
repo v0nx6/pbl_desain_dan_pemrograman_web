@@ -177,7 +177,7 @@ export default async function AdminPage({
                 <SampleTag />
               </div>
               <p className="mt-2 text-xs text-espresso-500">
-                Chat masih demo lokal, belum tersambung ke backend.
+                Chat masih tersimpan lokal, belum tersambung ke backend.
               </p>
               <ul className="mt-4 space-y-3">
                 {chatThreads.map((thread) => (
@@ -201,7 +201,7 @@ export default async function AdminPage({
                   className: "mt-auto w-full",
                 })}
               >
-                Buka chat demo
+                Buka chat
               </Link>
             </section>
           </div>
@@ -315,7 +315,7 @@ export default async function AdminPage({
       {active === "chat" ? (
         <section className="mt-6 rounded-3xl bg-ivory-50 p-5 sm:p-6">
           <div className="flex items-center justify-between gap-4">
-            <h2 className="font-display text-xl">Percakapan demo</h2>
+            <h2 className="font-display text-xl">Percakapan terbaru</h2>
             <SampleTag />
           </div>
           <p className="mt-2 text-sm text-espresso-500">

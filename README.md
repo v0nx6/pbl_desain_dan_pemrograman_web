@@ -1,6 +1,6 @@
 # Boutique NC: Next.js, Prisma, and FASHN Virtual Try-On
 
-A full-stack boutique demo for an Indonesian shop selling kebaya, batik, and
+A full-stack boutique app for an Indonesian shop selling kebaya, batik, and
 tenun. The UI keeps the **Warm Ivory** visual direction. The app is in Indonesian
 and includes a real, server-side integration with the official **FASHN VTON v1.5**
 Hugging Face Space.
@@ -22,9 +22,10 @@ Hugging Face Space.
 
 ### Storefront and customer account
 
-- Catalog with collection filters (`baru`, `batik`, `kebaya`) plus shopper
-  filters for size, single or couple, price range, best seller, and new
-  products. Product detail, size/stock selection, cart, checkout, QRIS,
+- Catalog with collection filters (`baru`, `batik`, `kebaya`, `priya`) plus
+  shopper filters for size, single or couple, price range, best seller, and new
+  products. The `priya` collection includes three men's pieces: a batik
+  parang shirt, a linen koko shirt, and a tenun blazer. Product detail, size/stock selection, cart, checkout, QRIS,
   bank transfer (BCA, Mandiri, BNI, BRI), or COD payment, payment proof
   upload, and an order timeline.
 - Checkout chooses between courier delivery and picking the order up at the
@@ -34,7 +35,8 @@ Hugging Face Space.
 - **Password reset with email OTP** at `/lupa-sandi`: the customer enters an
   email, receives a 6-digit code, verifies the code, then sets a new password.
   A successful reset signs out every old session. In development without SMTP
-  credentials the code is printed in the server log.
+  credentials the code is printed in the server log and shown on the reset
+  screen so the flow can still be tested.
 - **Signup address details**: name, email, password, phone number, street
   address, and an optional address description.
 - **Integrated OpenStreetMap preview**: the customer searches for a location,
@@ -172,8 +174,8 @@ For multi-instance deployments, mount a writable persistent volume at
 |---|---|---|
 | `DATABASE_URL` | yes | PostgreSQL connection string |
 | `APP_URL` | yes in production | Canonical origin for SEO and sitemap |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | seed only | Admin demo account |
-| `CUSTOMER_EMAIL`, `CUSTOMER_PASSWORD` | seed only | Customer demo account |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | seed only | Admin account |
+| `CUSTOMER_EMAIL`, `CUSTOMER_PASSWORD` | seed only | Customer account |
 | `HF_TOKEN` | no | Hugging Face token; raises the anonymous ZeroGPU quota |
 | `FASHN_SPACE_URL` | no | Defaults to the official v1.5 Space |
 | `FASHN_TIMEOUT_MS` | no | Queue + inference + download budget, default `100000` |
@@ -205,8 +207,8 @@ wrong attempts, and can be used once.
    `Boutique NC <toko@example.com>`. It must be a sender the account may use.
 
 Leave both values empty in development to print the OTP to the server console
-instead of sending mail. In production, a missing configuration returns HTTP
-503 so a reset is never silently lost.
+and show it on the reset screen instead of sending mail. In production, a
+missing configuration returns HTTP 503 so a reset is never silently lost.
 
 ### Reset flow
 
@@ -262,7 +264,7 @@ they cannot log in with email or delete the account with a password.
 
 ```text
 prisma/schema.prisma                 users, products, orders, finance, try-on jobs
-prisma/seed.ts                       idempotent demo catalog + accounts
+prisma/seed.ts                       idempotent catalog + accounts
 src/lib/tryon.ts                     FASHN Gradio adapter and error model
 src/app/api/try-on/route.ts          validation, rate limit, job lifecycle
 src/app/api/try-on/[id]/image/route.ts ownership-guarded result delivery
@@ -365,10 +367,10 @@ high-traffic deployment, point `NOMINATIM_URL` at your own Nominatim instance.
   of faking a result. `FASHN_TIMEOUT_MS` may need lowering to `55000` on hosts
   with a 60-second request cap.
 - Payments are simulated. QRIS contains `BUKAN-PEMBAYARAN-NYATA`; bank transfer
-  uses a demo virtual account with a bank prefix. COD orders skip proof upload
+  uses a virtual account with a bank prefix. COD orders skip proof upload
   and become paid when the admin marks them complete.
-- Chat is a local demo, clearly labeled `Contoh data`.
+- Chat is local and labeled `Contoh data`.
 - Rate limiting is in memory per process; a multi-instance deployment needs a
   shared store.
 - Uploads and results need a persistent volume or object storage in production.
-- Auth is demo grade: no email verification, password reset, or MFA.
+- Auth uses email and password plus Google sign-in. There is no MFA yet.

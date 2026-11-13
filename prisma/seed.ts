@@ -188,6 +188,72 @@ const products: SeedProduct[] = [
             { size: "XL", stock: 2 },
         ],
     },
+    {
+        slug: "kemeja-batik-parang-pria",
+        name: "Kemeja Batik Parang Pria",
+        collections: [Collection.BATIK, Collection.PRIYA],
+        productType: ProductType.SINGLE,
+        bestSeller: false,
+        isNew: true,
+        price: 525000,
+        tone: 400,
+        image: "/products/kemeja-batik-pria.jpg",
+        imageAlt: "Kain batik parang biru tua untuk kemeja pria",
+        description:
+            "Kemeja batik lengan panjang dengan motif parang yang tenang. Potongan lurus, nyaman dipakai untuk kerja maupun acara keluarga.",
+        material: "Katun primisima",
+        tryOnCategory: "upper_body",
+        tryOnPhotoType: "model",
+        variants: [
+            { size: "M", stock: 7 },
+            { size: "L", stock: 8 },
+            { size: "XL", stock: 5 },
+        ],
+    },
+    {
+        slug: "koko-linen-pria",
+        name: "Koko Linen Pria",
+        collections: [Collection.BARU, Collection.PRIYA],
+        productType: ProductType.SINGLE,
+        bestSeller: false,
+        isNew: true,
+        price: 465000,
+        tone: 200,
+        image: "/products/koko-linen-pria.jpg",
+        imageAlt: "Kain linen krem untuk koko pria",
+        description:
+            "Koko dari linen dengan kerah pendek dan kancing kayu. Ringan, adem, dan rapi untuk ibadah atau acara santai.",
+        material: "Linen katun",
+        tryOnCategory: "upper_body",
+        tryOnPhotoType: "model",
+        variants: [
+            { size: "M", stock: 8 },
+            { size: "L", stock: 9 },
+            { size: "XL", stock: 6 },
+        ],
+    },
+    {
+        slug: "blazer-tenun-pria",
+        name: "Blazer Tenun Pria",
+        collections: [Collection.BARU, Collection.PRIYA],
+        productType: ProductType.SINGLE,
+        bestSeller: true,
+        isNew: false,
+        price: 895000,
+        tone: 500,
+        image: "/products/blazer-tenun-pria.jpg",
+        imageAlt: "Kain tenun gelap untuk blazer pria",
+        description:
+            "Blazer tanpa lapisan tebal dari tenun ikat. Bisa dipakai terbuka di atas kemeja untuk acara yang sedikit lebih formal.",
+        material: "Tenun ikat, lining katun",
+        tryOnCategory: "upper_body",
+        tryOnPhotoType: "model",
+        variants: [
+            { size: "M", stock: 4 },
+            { size: "L", stock: 5 },
+            { size: "XL", stock: 3 },
+        ],
+    },
 ];
 
 async function seedUsers() {
@@ -222,13 +288,13 @@ async function seedUsers() {
     await prisma.user.upsert({
         where: { email: customerEmail },
         update: {
-            name: "Pelanggan Demo",
+            name: "Pelanggan",
             passwordHash: await hashPassword(customerPassword),
             role: Role.CUSTOMER,
         },
         create: {
             email: customerEmail,
-            name: "Pelanggan Demo",
+            name: "Pelanggan",
             passwordHash: await hashPassword(customerPassword),
             role: Role.CUSTOMER,
         },

@@ -1,4 +1,4 @@
-// Prisma schema for the boutique demo.
+// Prisma schema for the boutique app.
 // Money is stored as whole rupiah integers. Every price that a customer sees
 // is recomputed here on the server, never trusted from the browser.
 
@@ -20,6 +20,7 @@ enum Collection {
   BARU
   BATIK
   KEBAYA
+  PRIYA
 }
 
 enum OrderStatus {

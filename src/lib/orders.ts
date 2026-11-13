@@ -41,7 +41,7 @@ export function generatePaymentReference(
   bankName?: BankName | null,
 ): string {
   if (method === "QRIS") {
-    return `DEMO-QRIS|${number}|${total}|BUKAN-PEMBAYARAN-NYATA`;
+    return `QRIS|${number}|${total}|BUKAN-PEMBAYARAN-NYATA`;
   }
 
   if (method === "COD") {

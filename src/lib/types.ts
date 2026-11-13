@@ -1,4 +1,4 @@
-export type Collection = "baru" | "batik" | "kebaya";
+export type Collection = "baru" | "batik" | "kebaya" | "priya";
 
 export type ProductType = "single" | "couple";
 

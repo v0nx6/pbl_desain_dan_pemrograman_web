@@ -23,12 +23,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     const email = body.email.trim().toLowerCase();
     rateLimit(`forgot-email:${email}`, 3, 15 * 60 * 1000);
 
-    await requestPasswordReset(email);
+    const result = await requestPasswordReset(email);
 
     return noStoreJson({
       ok: true,
       message:
         "Kalau email ini terdaftar, kode OTP sudah dikirim. Cek inbox dan folder spam.",
+      ...(result.developmentCode && process.env.NODE_ENV === "development"
+        ? { developmentCode: result.developmentCode }
+        : {}),
     });
   } catch (error) {
     return apiError(error);

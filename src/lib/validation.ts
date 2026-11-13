@@ -183,7 +183,7 @@ export const productSchema = z.object({
     .min(1000, "Harga minimal Rp 1.000.")
     .max(100000000, "Harga maksimal Rp 100.000.000."),
   collections: z
-    .array(z.enum(["baru", "batik", "kebaya"]))
+    .array(z.enum(["baru", "batik", "kebaya", "priya"]))
     .min(1, "Pilih minimal satu koleksi."),
   productType: z.enum(["single", "couple"]).default("single"),
   bestSeller: z.boolean().default(false),

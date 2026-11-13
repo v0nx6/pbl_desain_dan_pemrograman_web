@@ -17,6 +17,7 @@ const collectionOptions: { value: Collection; label: string }[] = [
   { value: "baru", label: "Baru" },
   { value: "batik", label: "Batik" },
   { value: "kebaya", label: "Kebaya" },
+  { value: "priya", label: "Pria" },
 ];
 
 const categories = [

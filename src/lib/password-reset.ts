@@ -34,7 +34,7 @@ async function setResetCookie(token: string): Promise<void> {
 
 export async function requestPasswordReset(
   rawEmail: string,
-): Promise<{ sent: boolean }> {
+): Promise<{ sent: boolean; developmentCode?: string }> {
   const email = normalizeEmail(rawEmail);
   const user = await prisma.user.findUnique({
     where: { email },
@@ -60,13 +60,12 @@ export async function requestPasswordReset(
   });
 
   try {
-    await sendPasswordOtp(email, code);
+    const { delivered } = await sendPasswordOtp(email, code);
+    return delivered ? { sent: true } : { sent: true, developmentCode: code };
   } catch (error) {
     await prisma.passwordReset.delete({ where: { id: row.id } }).catch(() => {});
     throw error;
   }
-
-  return { sent: true };
 }
 
 export async function verifyPasswordOtp(

@@ -252,13 +252,6 @@ export function AuthForm({
         </Link>
       </p>
 
-      <div className="mt-8 rounded-2xl border border-line bg-ivory-50 p-4 text-sm text-espresso-500">
-        <p className="font-medium text-espresso-900">Akun demo</p>
-        <p className="mt-2">
-          Pelanggan: pelanggan@boutique.local / pelanggan123
-        </p>
-        <p>Admin: admin@boutique.local / admin12345</p>
-      </div>
     </div>
   );
 }
