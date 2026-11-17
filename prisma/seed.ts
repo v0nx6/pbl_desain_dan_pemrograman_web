@@ -256,6 +256,99 @@ const products: SeedProduct[] = [
     },
 ];
 
+const galleryImages: Record<string, { path: string; alt: string }[]> = {
+    "kebaya-encim-modern": [
+        {
+            path: "/products/kebaya-kutubaru.jpg",
+            alt: "Detail bordir dan bahan kebaya",
+        },
+    ],
+    "blouse-tenun-sumba": [
+        {
+            path: "/products/outer-tenun-ikat.jpg",
+            alt: "Detail tenun ikat untuk blouse",
+        },
+    ],
+    "kebaya-brokat": [
+        {
+            path: "/products/kebaya-kutubaru.jpg",
+            alt: "Detail bordir pada kebaya brokat",
+        },
+    ],
+    "kemeja-batik-parang-pria": [
+        {
+            path: "/products/batik-tulis-parang.jpg",
+            alt: "Detail motif parang pada kain batik",
+        },
+    ],
+    "koko-linen-pria": [
+        {
+            path: "/products/lurik-linen-set.jpg",
+            alt: "Detail serat kain linen",
+        },
+    ],
+    "blazer-tenun-pria": [
+        {
+            path: "/products/outer-tenun-ikat.jpg",
+            alt: "Detail tenun ikat untuk blazer",
+        },
+    ],
+};
+
+type Measurements = {
+    chestCm?: number;
+    lengthCm?: number;
+    waistCm?: number;
+};
+
+const sizeMeasurements: Record<string, Record<string, Measurements>> = {
+    "kebaya-encim-modern": {
+        S: { chestCm: 88, lengthCm: 58, waistCm: 72 },
+        M: { chestCm: 92, lengthCm: 60, waistCm: 76 },
+        L: { chestCm: 96, lengthCm: 62, waistCm: 80 },
+        XL: { chestCm: 100, lengthCm: 64, waistCm: 84 },
+    },
+    "lurik-linen-set": {
+        S: { chestCm: 90, lengthCm: 62, waistCm: 74 },
+        M: { chestCm: 94, lengthCm: 64, waistCm: 78 },
+        L: { chestCm: 98, lengthCm: 66, waistCm: 82 },
+    },
+    "kebaya-kutubaru": {
+        S: { chestCm: 86, lengthCm: 56, waistCm: 70 },
+        M: { chestCm: 90, lengthCm: 58, waistCm: 74 },
+        L: { chestCm: 94, lengthCm: 60, waistCm: 78 },
+    },
+    "blouse-tenun-sumba": {
+        S: { chestCm: 92, lengthCm: 60 },
+        M: { chestCm: 96, lengthCm: 62 },
+        L: { chestCm: 100, lengthCm: 64 },
+    },
+    "outer-tenun-ikat": {
+        "All size": { chestCm: 104, lengthCm: 68 },
+    },
+    "kebaya-brokat": {
+        S: { chestCm: 86, lengthCm: 57, waistCm: 70 },
+        M: { chestCm: 90, lengthCm: 59, waistCm: 74 },
+        L: { chestCm: 94, lengthCm: 61, waistCm: 78 },
+        XL: { chestCm: 98, lengthCm: 63, waistCm: 82 },
+    },
+    "kemeja-batik-parang-pria": {
+        M: { chestCm: 100, lengthCm: 72 },
+        L: { chestCm: 104, lengthCm: 74 },
+        XL: { chestCm: 108, lengthCm: 76 },
+    },
+    "koko-linen-pria": {
+        M: { chestCm: 102, lengthCm: 70 },
+        L: { chestCm: 106, lengthCm: 72 },
+        XL: { chestCm: 110, lengthCm: 74 },
+    },
+    "blazer-tenun-pria": {
+        M: { chestCm: 100, lengthCm: 70 },
+        L: { chestCm: 104, lengthCm: 72 },
+        XL: { chestCm: 108, lengthCm: 74 },
+    },
+};
+
 async function seedUsers() {
     const adminEmail = (process.env.ADMIN_EMAIL ?? "admin@boutique.local").toLowerCase();
     const customerEmail = (
@@ -327,8 +420,16 @@ async function main() {
 
         const variants = product.variants.map((variant, index) => ({
             ...variant,
+            ...(sizeMeasurements[product.slug]?.[variant.size] ?? {}),
             sortOrder: index,
         }));
+
+        const images = (galleryImages[product.slug] ?? []).map(
+            (image, index) => ({
+                ...image,
+                sortOrder: index,
+            }),
+        );
 
         await prisma.product.upsert({
             where: { slug: product.slug },
@@ -338,12 +439,19 @@ async function main() {
                     deleteMany: {},
                     create: variants,
                 },
+                images: {
+                    deleteMany: {},
+                    create: images,
+                },
             },
             create: {
                 ...data,
                 slug: product.slug,
                 variants: {
                     create: variants,
+                },
+                images: {
+                    create: images,
                 },
             },
         });

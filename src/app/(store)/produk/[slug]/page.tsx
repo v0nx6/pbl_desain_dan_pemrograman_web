@@ -2,14 +2,30 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BuyPanel } from "@/components/product-buy-panel";
+import { ProductGallery } from "@/components/product-gallery";
 import { ProductReviews } from "@/components/product-reviews";
+import { SizeGuide } from "@/components/size-guide";
+import { WishlistButton } from "@/components/wishlist-button";
 import { buttonStyles } from "@/components/ui/button";
-import { ProductMedia } from "@/components/ui/product-media";
 import { getCurrentUser } from "@/lib/auth";
 import { getProductBySlug } from "@/lib/catalog";
+import { isProductFavorite } from "@/lib/favorites";
 import { formatIDR } from "@/lib/format";
 import { getProductReviews } from "@/lib/reviews";
 import { absoluteUrl } from "@/lib/seo";
+
+function productImageUrls(product: {
+  image: string | null;
+  images: { url: string }[];
+}): string[] {
+  return [
+    ...new Set(
+      [product.image, ...product.images.map((image) => image.url)].filter(
+        (url): url is string => Boolean(url),
+      ),
+    ),
+  ];
+}
 
 export async function generateMetadata({
   params,
@@ -28,7 +44,8 @@ export async function generateMetadata({
 
   const url = absoluteUrl(`/produk/${product.slug}`);
   const description = `${product.description} Bahan ${product.material}.`;
-  const images = product.image ? [absoluteUrl(product.image)] : undefined;
+  const gallery = productImageUrls(product).map(absoluteUrl);
+  const images = gallery.length > 0 ? gallery : undefined;
 
   return {
     title: product.name,
@@ -60,13 +77,14 @@ export default async function ProductPage({
   if (!product) notFound();
 
   const viewer = await getCurrentUser();
-  const { reviews, summary, hasReviewed } = await getProductReviews(
-    product.id,
-    viewer?.id,
-  );
+  const [{ reviews, summary, hasReviewed }, saved] = await Promise.all([
+    getProductReviews(product.id, viewer?.id),
+    viewer ? isProductFavorite(viewer.id, product.id) : Promise.resolve(false),
+  ]);
 
   const productUrl = absoluteUrl(`/produk/${product.slug}`);
   const inStock = Object.values(product.stockBySize).some((stock) => stock > 0);
+  const gallery = productImageUrls(product).map(absoluteUrl);
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -75,7 +93,7 @@ export default async function ProductPage({
     sku: product.slug,
     material: product.material,
     brand: { "@type": "Brand", name: "Boutique NC" },
-    ...(product.image ? { image: [absoluteUrl(product.image)] } : {}),
+    ...(gallery.length > 0 ? { image: gallery } : {}),
     offers: {
       "@type": "Offer",
       url: productUrl,
@@ -114,12 +132,7 @@ export default async function ProductPage({
       </nav>
 
       <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:gap-16">
-        <ProductMedia
-          product={product}
-          className="aspect-[4/5]"
-          sizes="(min-width: 1024px) 50vw, 100vw"
-          priority
-        />
+        <ProductGallery product={product} />
 
         <div className="lg:sticky lg:top-28 lg:self-start">
           <p className="text-xs font-semibold tracking-[0.14em] text-clay-500 uppercase">
@@ -145,6 +158,25 @@ export default async function ProductPage({
             Coba dulu dengan AI Try-On
           </Link>
 
+          <WishlistButton
+            productId={product.id}
+            initialSaved={saved}
+            isLoggedIn={Boolean(viewer)}
+            nextPath={`/produk/${product.slug}`}
+            variant="full"
+          />
+
+          {product.sizeGuide.some(
+            (row) => row.chest || row.length || row.waist,
+          ) ? (
+            <a
+              href="#panduan-ukuran"
+              className="mt-4 inline-flex text-sm underline underline-offset-4 hover:text-clay-500"
+            >
+              Lihat panduan ukuran
+            </a>
+          ) : null}
+
           <dl className="mt-10 space-y-3 border-t border-line pt-6 text-sm">
             <div className="flex justify-between gap-6">
               <dt className="text-espresso-500">Bahan</dt>
@@ -167,6 +199,8 @@ export default async function ProductPage({
           </dl>
         </div>
       </div>
+
+      <SizeGuide rows={product.sizeGuide} />
 
       <ProductReviews
         productId={product.id}

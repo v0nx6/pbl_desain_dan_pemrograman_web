@@ -5,6 +5,7 @@ import type { OrderStatus, PaymentStatus } from "@prisma/client";
 import type { z } from "zod";
 import { ApiError } from "@/lib/api-helpers";
 import { prisma } from "@/lib/db";
+import { sendOrderEmail } from "@/lib/mail";
 import {
   calculateShipping,
   generateOrderNumber,
@@ -181,11 +182,16 @@ export async function createOrder(userId: string, input: OrderInput) {
             paymentReference,
             items: { create: orderItems },
           },
-          include: orderWithItems,
+          include: {
+            ...orderWithItems,
+            user: { select: { name: true, email: true } },
+          },
         });
       });
 
-      return toOrderDetail(created);
+      const detail = toOrderDetail(created);
+      await sendOrderEmail(detail, "created");
+      return detail;
     } catch (error) {
       if (isOrderNumberConflict(error) && attempt < 4) continue;
       throw error;
@@ -257,7 +263,9 @@ export async function transitionOrder(
       });
     });
 
-    return toOrderDetail(updated);
+    const detail = toOrderDetail(updated);
+    await sendOrderEmail(detail, "cancel");
+    return detail;
   }
 
   const data: Prisma.OrderUpdateManyMutationInput = {
@@ -307,7 +315,9 @@ export async function transitionOrder(
     include: { ...orderWithItems, user: { select: { name: true, email: true } } },
   });
 
-  return toOrderDetail(updated);
+  const detail = toOrderDetail(updated);
+  await sendOrderEmail(detail, action);
+  return detail;
 }
 
 export async function cancelOwnOrder(orderId: string, userId: string) {
@@ -344,9 +354,14 @@ export async function cancelOwnOrder(orderId: string, userId: string) {
 
     return tx.order.findUniqueOrThrow({
       where: { id: orderId },
-      include: orderWithItems,
+      include: {
+        ...orderWithItems,
+        user: { select: { name: true, email: true } },
+      },
     });
   });
 
-  return toOrderDetail(updated);
+  const detail = toOrderDetail(updated);
+  await sendOrderEmail(detail, "cancel");
+  return detail;
 }

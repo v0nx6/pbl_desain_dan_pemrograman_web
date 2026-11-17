@@ -7,6 +7,7 @@ import {
   requireUser,
 } from "@/lib/api-helpers";
 import { prisma } from "@/lib/db";
+import { sendOrderEmail } from "@/lib/mail";
 import { orderWithItems, toOrderDetail } from "@/lib/orders";
 import { canUploadProof } from "@/lib/orders";
 import { readStored, saveUpload } from "@/lib/storage";
@@ -84,10 +85,15 @@ export async function POST(
 
     const updated = await prisma.order.findUniqueOrThrow({
       where: { id },
-      include: orderWithItems,
+      include: {
+        ...orderWithItems,
+        user: { select: { name: true, email: true } },
+      },
     });
 
-    return noStoreJson({ order: toOrderDetail(updated) });
+    const detail = toOrderDetail(updated);
+    await sendOrderEmail(detail, "proof");
+    return noStoreJson({ order: detail });
   } catch (error) {
     return apiError(error);
   }

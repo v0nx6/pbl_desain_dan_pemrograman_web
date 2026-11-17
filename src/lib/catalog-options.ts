@@ -6,13 +6,23 @@ export const catalogPriceRanges = [
   { value: "2000000-999999999", label: "Di atas Rp 2.000.000" },
 ] as const;
 
+export const catalogSortOptions = [
+  { value: "", label: "Urutan pilihan" },
+  { value: "terbaru", label: "Terbaru" },
+  { value: "terlaris", label: "Terlaris" },
+  { value: "termurah", label: "Harga termurah" },
+  { value: "termahal", label: "Harga termahal" },
+] as const;
+
 export type CatalogFilterInput = {
   kategori?: string;
+  q?: string;
   ukuran?: string;
   tipe?: string;
   harga?: string;
   terbaik?: string;
   baru?: string;
+  urut?: string;
 };
 
 export function catalogPriceRange(value: string): [number, number] | null {
@@ -26,10 +36,12 @@ export function catalogPriceRange(value: string): [number, number] | null {
 
 export function hasCatalogFilter(filters: CatalogFilterInput): boolean {
   return Boolean(
-    filters.ukuran ||
+    filters.q ||
+      filters.ukuran ||
       filters.tipe ||
       filters.harga ||
       filters.terbaik ||
-      filters.baru,
+      filters.baru ||
+      filters.urut,
   );
 }

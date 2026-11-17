@@ -176,6 +176,13 @@ export function SiteHeader({ user }: { user: SessionUser | null }) {
                 >
                   Akun saya
                 </Link>
+                <Link
+                  href="/akun/favorit"
+                  onClick={() => setMenuOpen(false)}
+                  className={buttonStyles({ variant: "quiet" })}
+                >
+                  Favorit saya
+                </Link>
                 {user.role === "ADMIN" ? (
                   <Link
                     href="/admin"

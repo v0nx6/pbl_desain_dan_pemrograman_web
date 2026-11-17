@@ -1,9 +1,20 @@
 import Link from "next/link";
+import { WishlistButton } from "@/components/wishlist-button";
 import { formatIDR } from "@/lib/format";
 import type { Product } from "@/lib/types";
 import { ProductMedia } from "@/components/ui/product-media";
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({
+  product,
+  saved = false,
+  isLoggedIn = false,
+  nextPath = "/#koleksi",
+}: {
+  product: Product;
+  saved?: boolean;
+  isLoggedIn?: boolean;
+  nextPath?: string;
+}) {
   const badge = product.isNew
     ? "Baru"
     : product.bestSeller
@@ -32,6 +43,14 @@ export function ProductCard({ product }: { product: Product }) {
             {badge}
           </span>
         ) : null}
+
+        <WishlistButton
+          productId={product.id}
+          initialSaved={saved}
+          isLoggedIn={isLoggedIn}
+          nextPath={nextPath}
+          className="absolute top-3 right-3"
+        />
 
         <Link
           href={`/try-on?produk=${product.slug}`}

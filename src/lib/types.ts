@@ -5,6 +5,19 @@ export type ProductType = "single" | "couple";
 /** FASHN decides how to read the garment photo from this hint. */
 export type TryOnPhotoType = "model" | "flat-lay";
 
+export type ProductImage = {
+  id: string;
+  url: string;
+  alt: string | null;
+};
+
+export type SizeGuideRow = {
+  size: string;
+  chest: number | null;
+  length: number | null;
+  waist: number | null;
+};
+
 export type Product = {
   id: string;
   slug: string;
@@ -17,6 +30,8 @@ export type Product = {
   tone: number;
   image: string | null;
   imageAlt: string | null;
+  images: ProductImage[];
+  sizeGuide: SizeGuideRow[];
   description: string;
   material: string;
   sizes: string[];
@@ -24,6 +39,7 @@ export type Product = {
   tryOnCategory: string;
   tryOnPhotoType: TryOnPhotoType | null;
   active: boolean;
+  createdAt: string;
 };
 
 export type SessionUser = {

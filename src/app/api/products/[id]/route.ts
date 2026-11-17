@@ -28,7 +28,11 @@ export async function PATCH(
     const body = parseWith(productSchema, await readJson(request));
     const current = await prisma.product.findUnique({
       where: { id },
-      select: { id: true, image: true },
+      select: {
+        id: true,
+        image: true,
+        images: { select: { path: true } },
+      },
     });
     if (!current) throw new ApiError(404, "Produk tidak ditemukan.");
 
@@ -41,22 +45,38 @@ export async function PATCH(
     }
 
     const data = toProductData(body);
-    const { variants, ...rest } = data;
+    const { variants, images, ...rest } = data;
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.productVariant.deleteMany({ where: { productId: id } });
+      await tx.productImage.deleteMany({ where: { productId: id } });
       return tx.product.update({
         where: { id },
         data: {
           ...rest,
           variants: { create: variants.create },
+          images: { create: images.create },
         },
         include: productWithVariants,
       });
     });
 
-    if (current.image && current.image !== body.image) {
-      await deleteProductImage(current.image);
+    const keep = new Set(body.images.map((image) => image.path.trim()));
+    const removed = [
+      ...current.images.map((image) => image.path),
+      ...(current.image ? [current.image] : []),
+    ].filter((path) => !keep.has(path) && path !== updated.image);
+
+    for (const path of new Set(removed)) {
+      const usedInGallery = await prisma.productImage.count({
+        where: { path },
+      });
+      const usedAsPrimary = await prisma.product.count({
+        where: { image: path },
+      });
+      if (usedInGallery === 0 && usedAsPrimary === 0) {
+        await deleteProductImage(path);
+      }
     }
 
     return noStoreJson({ product: mapProduct(updated) });

@@ -139,6 +139,16 @@ export const deleteAccountSchema = z.object({
   password: z.string().min(1, "Masukkan kata sandi untuk menghapus akun."),
 });
 
+const optionalMeasurement = z.preprocess(
+  (value) => (value === "" || value === null ? undefined : value),
+  z.coerce
+    .number()
+    .int("Ukuran badan harus bilangan bulat.")
+    .min(1, "Ukuran badan minimal 1 cm.")
+    .max(300, "Ukuran badan maksimal 300 cm.")
+    .optional(),
+);
+
 const variantSchema = z.object({
   size: z
     .string()
@@ -150,6 +160,26 @@ const variantSchema = z.object({
     .int("Stok harus bilangan bulat.")
     .min(0, "Stok tidak boleh negatif.")
     .max(10000, "Stok maksimal 10.000."),
+  chestCm: optionalMeasurement,
+  lengthCm: optionalMeasurement,
+  waistCm: optionalMeasurement,
+});
+
+const productImageSchema = z.object({
+  path: z
+    .string()
+    .trim()
+    .max(300, "Path gambar terlalu panjang.")
+    .regex(
+      /^\/[A-Za-z0-9/_.-]+$/,
+      "Path gambar harus diawali / dan hanya berisi huruf, angka, garis miring, atau tanda hubung.",
+    ),
+  alt: z
+    .string()
+    .trim()
+    .max(200, "Alt gambar maksimal 200 karakter.")
+    .optional()
+    .or(z.literal("")),
 });
 
 export const productSchema = z.object({
@@ -205,6 +235,10 @@ export const productSchema = z.object({
     .max(200, "Alt gambar maksimal 200 karakter.")
     .optional()
     .or(z.literal("")),
+  images: z
+    .array(productImageSchema)
+    .max(8, "Maksimal 8 foto galeri.")
+    .default([]),
   tryOnCategory: z
     .enum(["upper_body", "lower_body", "dresses"])
     .default("upper_body"),

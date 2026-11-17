@@ -9,7 +9,15 @@ import { Button, buttonStyles } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import type { Collection, Product, ProductType } from "@/lib/types";
 
-type VariantRow = { size: string; stock: string };
+type VariantRow = {
+  size: string;
+  stock: string;
+  chest: string;
+  length: string;
+  waist: string;
+};
+
+type GalleryRow = { path: string; alt: string };
 
 type FieldErrors = Record<string, string | undefined>;
 
@@ -27,6 +35,8 @@ const categories = [
 ];
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_GALLERY = 8;
+const IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 export function ProductForm({
   mode,
@@ -53,6 +63,12 @@ export function ProductForm({
   const [tone, setTone] = useState(String(product?.tone ?? 300));
   const [image, setImage] = useState(product?.image ?? "");
   const [imageAlt, setImageAlt] = useState(product?.imageAlt ?? "");
+  const [gallery, setGallery] = useState<GalleryRow[]>(
+    product?.images.map((item) => ({
+      path: item.url,
+      alt: item.alt ?? "",
+    })) ?? [],
+  );
   const [tryOnCategory, setTryOnCategory] = useState(
     product?.tryOnCategory ?? "upper_body",
   );
@@ -62,14 +78,23 @@ export function ProductForm({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [galleryError, setGalleryError] = useState<string | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [active, setActive] = useState(product?.active ?? true);
   const [variants, setVariants] = useState<VariantRow[]>(
     product
-      ? product.sizes.map((size) => ({
-          size,
-          stock: String(product.stockBySize[size] ?? 0),
-        }))
-      : [{ size: "M", stock: "0" }],
+      ? product.sizes.map((size) => {
+          const guide = product.sizeGuide.find((row) => row.size === size);
+          return {
+            size,
+            stock: String(product.stockBySize[size] ?? 0),
+            chest: guide?.chest ? String(guide.chest) : "",
+            length: guide?.length ? String(guide.length) : "",
+            waist: guide?.waist ? String(guide.waist) : "",
+          };
+        })
+      : [{ size: "M", stock: "0", chest: "", length: "", waist: "" }],
   );
   const [errors, setErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState<string | null>(null);
@@ -91,11 +116,19 @@ export function ProductForm({
     );
   }
 
+  function updateGallery(index: number, patch: Partial<GalleryRow>) {
+    setGallery((current) =>
+      current.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, ...patch } : row,
+      ),
+    );
+  }
+
   async function uploadImage(file: File | undefined) {
     if (!file) return;
 
     setImageError(null);
-    if (!["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(file.type)) {
+    if (!IMAGE_TYPES.includes(file.type)) {
       setImageError("Foto harus JPG, PNG, atau WEBP.");
       return;
     }
@@ -131,6 +164,59 @@ export function ProductForm({
     }
   }
 
+  async function uploadGallery(files: FileList | null) {
+    if (!files || files.length === 0) return;
+
+    setGalleryError(null);
+    const remaining = MAX_GALLERY - gallery.length;
+    if (remaining <= 0) {
+      setGalleryError("Galeri sudah penuh. Hapus satu foto dulu.");
+      return;
+    }
+
+    const selected = Array.from(files).slice(0, remaining);
+    const added: GalleryRow[] = [];
+    setUploadingGallery(true);
+
+    try {
+      for (const file of selected) {
+        if (!IMAGE_TYPES.includes(file.type)) {
+          setGalleryError("Foto harus JPG, PNG, atau WEBP.");
+          continue;
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+          setGalleryError("Ukuran foto melebihi 5 MB.");
+          continue;
+        }
+
+        const body = new FormData();
+        body.set("image", file);
+        const response = await fetch("/api/products/image", {
+          method: "POST",
+          body,
+        });
+        const data = (await response.json().catch(() => ({}))) as {
+          image?: string;
+          error?: string;
+        };
+
+        if (!response.ok || !data.image) {
+          setGalleryError(data.error ?? "Foto galeri tidak bisa diunggah.");
+          continue;
+        }
+
+        added.push({ path: data.image, alt: "" });
+      }
+    } catch {
+      setGalleryError("Tidak bisa menghubungi server. Coba lagi.");
+    } finally {
+      if (added.length > 0) {
+        setGallery((current) => [...current, ...added].slice(0, MAX_GALLERY));
+      }
+      setUploadingGallery(false);
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -156,6 +242,19 @@ export function ProductForm({
     if (variants.some((row) => Number(row.stock) < 0 || row.stock === "")) {
       local.variants = "Stok harus 0 atau lebih.";
     }
+    const measurementInvalid = variants.some((row) =>
+      [row.chest, row.length, row.waist].some((value) => {
+        if (value === "") return false;
+        const number = Number(value);
+        return !Number.isInteger(number) || number < 1 || number > 300;
+      }),
+    );
+    if (measurementInvalid) {
+      local.variants = "Ukuran badan harus 1 sampai 300 cm.";
+    }
+    if (gallery.length > MAX_GALLERY) {
+      local.images = `Maksimal ${MAX_GALLERY} foto galeri.`;
+    }
 
     setErrors(local);
     setNotice(null);
@@ -174,12 +273,19 @@ export function ProductForm({
       tone: Number(tone),
       image: image.trim(),
       imageAlt: imageAlt.trim(),
+      images: gallery.map((row) => ({
+        path: row.path,
+        alt: row.alt.trim(),
+      })),
       tryOnCategory,
       tryOnPhotoType: tryOnPhotoType || null,
       active,
       variants: variants.map((row) => ({
         size: row.size.trim(),
         stock: Number(row.stock),
+        chestCm: row.chest === "" ? undefined : Number(row.chest),
+        lengthCm: row.length === "" ? undefined : Number(row.length),
+        waistCm: row.waist === "" ? undefined : Number(row.waist),
       })),
     };
 
@@ -214,6 +320,7 @@ export function ProductForm({
           "isNew",
           "image",
           "imageAlt",
+          "images",
           "tryOnCategory",
           "tryOnPhotoType",
           "variants",
@@ -440,7 +547,7 @@ export function ProductForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Foto produk</label>
+            <label className="block text-sm font-medium">Foto utama</label>
             <input
               ref={imageInputRef}
               type="file"
@@ -505,12 +612,100 @@ export function ProductForm({
           </div>
 
           <Field
-            label="Alt foto"
+            label="Alt foto utama"
             value={imageAlt}
             onChange={setImageAlt}
             error={errors.imageAlt}
             hint="Jelaskan isi foto untuk pembaca layar."
           />
+
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="block text-sm font-medium">Galeri foto</label>
+              <span className="text-xs text-espresso-500">
+                {gallery.length}/{MAX_GALLERY}
+              </span>
+            </div>
+            <input
+              ref={galleryInputRef}
+              type="file"
+              multiple
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              className="sr-only"
+              onChange={(event) => {
+                uploadGallery(event.target.files);
+                event.target.value = "";
+              }}
+            />
+            {gallery.length > 0 ? (
+              <ul className="mt-2 space-y-2">
+                {gallery.map((row, index) => (
+                  <li
+                    key={row.path}
+                    className="flex items-start gap-3 rounded-2xl border border-line bg-ivory-100 p-3"
+                  >
+                    <img
+                      src={row.path}
+                      alt=""
+                      className="size-20 shrink-0 rounded-xl object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <label
+                        htmlFor={`galeri-alt-${index}`}
+                        className="block text-xs text-espresso-500"
+                      >
+                        Alt foto
+                      </label>
+                      <input
+                        id={`galeri-alt-${index}`}
+                        value={row.alt}
+                        onChange={(event) =>
+                          updateGallery(index, { alt: event.target.value })
+                        }
+                        placeholder="Contoh: tampak samping"
+                        className="mt-1 min-h-10 w-full rounded-full border border-line bg-ivory-50 px-4 text-sm"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="quiet"
+                      onClick={() =>
+                        setGallery((current) =>
+                          current.filter(
+                            (_, rowIndex) => rowIndex !== index,
+                          ),
+                        )
+                      }
+                      aria-label={`Hapus foto galeri ${index + 1}`}
+                    >
+                      Hapus
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 rounded-2xl border border-dashed border-sand-500 px-4 py-6 text-center text-xs text-espresso-500">
+                Belum ada foto tambahan.
+              </p>
+            )}
+            <Button
+              type="button"
+              variant="secondary"
+              className="mt-3"
+              onClick={() => galleryInputRef.current?.click()}
+              disabled={uploadingGallery || gallery.length >= MAX_GALLERY}
+            >
+              {uploadingGallery ? "Mengunggah..." : "+ Tambah foto galeri"}
+            </Button>
+            <p className="mt-2 text-xs text-espresso-500">
+              JPG, PNG, atau WEBP. Maksimal 5 MB per foto, 8 foto.
+            </p>
+            {galleryError || errors.images ? (
+              <p className="mt-2 text-xs text-clay-600">
+                {galleryError ?? errors.images}
+              </p>
+            ) : null}
+          </div>
 
           <label className="flex min-h-11 items-center gap-3 text-sm">
             <input
@@ -526,12 +721,20 @@ export function ProductForm({
 
       <section className="rounded-3xl bg-ivory-50 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-2xl">Ukuran dan stok</h2>
+          <div>
+            <h2 className="font-display text-2xl">Ukuran dan stok</h2>
+            <p className="mt-1 text-xs text-espresso-500">
+              Ukuran badan dalam sentimeter, boleh dikosongkan.
+            </p>
+          </div>
           <Button
             type="button"
             variant="quiet"
             onClick={() =>
-              setVariants((current) => [...current, { size: "", stock: "0" }])
+              setVariants((current) => [
+                ...current,
+                { size: "", stock: "0", chest: "", length: "", waist: "" },
+              ])
             }
           >
             + Tambah ukuran
@@ -542,55 +745,120 @@ export function ProductForm({
           {variants.map((row, index) => (
             <div
               key={index}
-              className="flex flex-wrap items-end gap-3 rounded-2xl border border-line bg-ivory-100 p-3"
+              className="rounded-2xl border border-line bg-ivory-100 p-3"
             >
-              <div className="min-w-[160px] flex-1">
-                <label
-                  htmlFor={`ukuran-${index}`}
-                  className="block text-xs text-espresso-500"
-                >
-                  Ukuran
-                </label>
-                <input
-                  id={`ukuran-${index}`}
-                  value={row.size}
-                  onChange={(event) =>
-                    updateVariant(index, { size: event.target.value })
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[160px] flex-1">
+                  <label
+                    htmlFor={`ukuran-${index}`}
+                    className="block text-xs text-espresso-500"
+                  >
+                    Ukuran
+                  </label>
+                  <input
+                    id={`ukuran-${index}`}
+                    value={row.size}
+                    onChange={(event) =>
+                      updateVariant(index, { size: event.target.value })
+                    }
+                    placeholder="S, M, L, All size"
+                    className="mt-1 min-h-11 w-full rounded-full border border-line bg-ivory-50 px-4 text-sm"
+                  />
+                </div>
+                <div className="w-32">
+                  <label
+                    htmlFor={`stok-${index}`}
+                    className="block text-xs text-espresso-500"
+                  >
+                    Stok
+                  </label>
+                  <input
+                    id={`stok-${index}`}
+                    type="number"
+                    min={0}
+                    value={row.stock}
+                    onChange={(event) =>
+                      updateVariant(index, { stock: event.target.value })
+                    }
+                    className="mt-1 min-h-11 w-full rounded-full border border-line bg-ivory-50 px-4 text-sm"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="quiet"
+                  onClick={() =>
+                    setVariants((current) =>
+                      current.filter((_, rowIndex) => rowIndex !== index),
+                    )
                   }
-                  placeholder="S, M, L, All size"
-                  className="mt-1 min-h-11 w-full rounded-full border border-line bg-ivory-50 px-4 text-sm"
-                />
-              </div>
-              <div className="w-32">
-                <label
-                  htmlFor={`stok-${index}`}
-                  className="block text-xs text-espresso-500"
+                  disabled={variants.length === 1}
                 >
-                  Stok
-                </label>
-                <input
-                  id={`stok-${index}`}
-                  type="number"
-                  min={0}
-                  value={row.stock}
-                  onChange={(event) =>
-                    updateVariant(index, { stock: event.target.value })
-                  }
-                  className="mt-1 min-h-11 w-full rounded-full border border-line bg-ivory-50 px-4 text-sm"
-                />
+                  Hapus
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="quiet"
-                onClick={() =>
-                  setVariants((current) =>
-                    current.filter((_, rowIndex) => rowIndex !== index),
-                  )
-                }
-                disabled={variants.length === 1}
-              >
-                Hapus
-              </Button>
+
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label
+                    htmlFor={`dada-${index}`}
+                    className="block text-xs text-espresso-500"
+                  >
+                    Lingkar dada (cm)
+                  </label>
+                  <input
+                    id={`dada-${index}`}
+                    type="number"
+                    min={1}
+                    max={300}
+                    value={row.chest}
+                    onChange={(event) =>
+                      updateVariant(index, { chest: event.target.value })
+                    }
+                    placeholder="Opsional"
+                    className="mt-1 min-h-11 w-full rounded-full border border-line bg-ivory-50 px-4 text-sm"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor={`panjang-${index}`}
+                    className="block text-xs text-espresso-500"
+                  >
+                    Panjang badan (cm)
+                  </label>
+                  <input
+                    id={`panjang-${index}`}
+                    type="number"
+                    min={1}
+                    max={300}
+                    value={row.length}
+                    onChange={(event) =>
+                      updateVariant(index, { length: event.target.value })
+                    }
+                    placeholder="Opsional"
+                    className="mt-1 min-h-11 w-full rounded-full border border-line bg-ivory-50 px-4 text-sm"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor={`pinggang-${index}`}
+                    className="block text-xs text-espresso-500"
+                  >
+                    Lingkar pinggang (cm)
+                  </label>
+                  <input
+                    id={`pinggang-${index}`}
+                    type="number"
+                    min={1}
+                    max={300}
+                    value={row.waist}
+                    onChange={(event) =>
+                      updateVariant(index, { waist: event.target.value })
+                    }
+                    placeholder="Opsional"
+                    className="mt-1 min-h-11 w-full rounded-full border border-line bg-ivory-50 px-4 text-sm"
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>

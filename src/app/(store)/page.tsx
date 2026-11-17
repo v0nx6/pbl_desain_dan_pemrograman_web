@@ -6,9 +6,11 @@ import { HeroSlideshow } from "@/components/hero-slideshow";
 import { ProductCard } from "@/components/product-card";
 import { buttonStyles } from "@/components/ui/button";
 import { SectionLabel } from "@/components/ui/label";
+import { getCurrentUser } from "@/lib/auth";
 import { catalogSizes, filterCatalog, getCatalog } from "@/lib/catalog";
 import { hasCatalogFilter } from "@/lib/catalog-options";
 import { collections } from "@/lib/collections";
+import { getFavoriteProductIds } from "@/lib/favorites";
 import { absoluteUrl } from "@/lib/seo";
 import { getSiteImages } from "@/lib/site-images";
 
@@ -21,28 +23,34 @@ export default async function StorefrontPage({
 }: {
   searchParams: Promise<{
     kategori?: string;
+    q?: string;
     ukuran?: string;
     tipe?: string;
     harga?: string;
     terbaik?: string;
     baru?: string;
+    urut?: string;
   }>;
 }) {
   const params = await searchParams;
   const active =
     collections.find((item) => item.value === params.kategori) ??
     collections[0];
-  const [catalog, siteImages] = await Promise.all([
+  const viewer = await getCurrentUser();
+  const [catalog, siteImages, favoriteIds] = await Promise.all([
     getCatalog(),
     getSiteImages(),
+    getFavoriteProductIds(viewer?.id),
   ]);
   const filters = {
     kategori: active.value,
+    q: params.q ?? "",
     ukuran: params.ukuran ?? "",
     tipe: params.tipe ?? "",
     harga: params.harga ?? "",
     terbaik: params.terbaik ?? "",
     baru: params.baru ?? "",
+    urut: params.urut ?? "",
   };
   const items = filterCatalog(catalog, filters);
   const hasExtraFilter = hasCatalogFilter(filters);
@@ -52,11 +60,13 @@ export default async function StorefrontPage({
   function collectionHref(value: string): string {
     const query = new URLSearchParams();
     if (value !== "semua") query.set("kategori", value);
+    if (filters.q) query.set("q", filters.q);
     if (filters.ukuran) query.set("ukuran", filters.ukuran);
     if (filters.tipe) query.set("tipe", filters.tipe);
     if (filters.harga) query.set("harga", filters.harga);
     if (filters.terbaik) query.set("terbaik", filters.terbaik);
     if (filters.baru) query.set("baru", filters.baru);
+    if (filters.urut) query.set("urut", filters.urut);
     const suffix = query.toString();
     return `/${suffix ? `?${suffix}` : ""}#koleksi`;
   }
@@ -148,14 +158,16 @@ export default async function StorefrontPage({
         <div className="flex flex-col gap-5 border-b border-line pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <SectionLabel>
-              {hasExtraFilter
-                ? "Hasil filter"
-                : isFiltered
-                  ? `Kategori ${active.label}`
-                  : "Pilihan kami"}
+              {filters.q
+                ? "Hasil pencarian"
+                : hasExtraFilter
+                  ? "Hasil filter"
+                  : isFiltered
+                    ? `Kategori ${active.label}`
+                    : "Pilihan kami"}
             </SectionLabel>
             <h2 className="mt-2 font-display text-[clamp(2rem,3.6vw,3.25rem)] leading-[1.02] tracking-[-0.02em]">
-              Yang lagi kami suka
+              {filters.q ? `Untuk "${filters.q}"` : "Yang lagi kami suka"}
             </h2>
           </div>
 
@@ -182,7 +194,15 @@ export default async function StorefrontPage({
 
         <CatalogFilters
           sizes={sizes}
-          current={filters}
+          current={{
+            q: filters.q,
+            ukuran: filters.ukuran,
+            tipe: filters.tipe,
+            harga: filters.harga,
+            terbaik: filters.terbaik,
+            baru: filters.baru,
+            urut: filters.urut,
+          }}
           kategori={active.value}
           resultCount={items.length}
           hasFilter={hasExtraFilter}
@@ -195,7 +215,7 @@ export default async function StorefrontPage({
               Belum ada produk yang cocok
             </p>
             <p className="mt-2 text-sm text-espresso-500">
-              Coba ubah ukuran, kategori, atau rentang harga.
+              Coba ubah kata kunci, ukuran, kategori, atau rentang harga.
             </p>
             <Link
               href={hasExtraFilter ? resetHref : "/#koleksi"}
@@ -210,7 +230,13 @@ export default async function StorefrontPage({
         ) : (
           <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-12">
             {items.map((product) => (
-              <ProductCard key={product.slug} product={product} />
+              <ProductCard
+                key={product.slug}
+                product={product}
+                saved={favoriteIds.includes(product.id)}
+                isLoggedIn={Boolean(viewer)}
+                nextPath="/#koleksi"
+              />
             ))}
           </div>
         )}

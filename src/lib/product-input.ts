@@ -5,10 +5,26 @@ import type { productSchema } from "@/lib/validation";
 
 type ProductInput = z.infer<typeof productSchema>;
 
+type VariantCreate = {
+  size: string;
+  stock: number;
+  chestCm: number | null;
+  lengthCm: number | null;
+  waistCm: number | null;
+  sortOrder: number;
+};
+
+type ImageCreate = {
+  path: string;
+  alt: string | null;
+  sortOrder: number;
+};
+
 export function toProductData(
   body: ProductInput,
-): Omit<Prisma.ProductCreateInput, "variants"> & {
-  variants: { create: { size: string; stock: number; sortOrder: number }[] };
+): Omit<Prisma.ProductCreateInput, "variants" | "images"> & {
+  variants: { create: VariantCreate[] };
+  images: { create: ImageCreate[] };
 } {
   return {
     slug: body.slug,
@@ -30,6 +46,16 @@ export function toProductData(
       create: body.variants.map((variant, index) => ({
         size: variant.size,
         stock: variant.stock,
+        chestCm: variant.chestCm ?? null,
+        lengthCm: variant.lengthCm ?? null,
+        waistCm: variant.waistCm ?? null,
+        sortOrder: index,
+      })),
+    },
+    images: {
+      create: body.images.map((image, index) => ({
+        path: image.path.trim(),
+        alt: image.alt?.trim() || null,
         sortOrder: index,
       })),
     },

@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent } from "react";
 import { buttonStyles } from "@/components/ui/button";
-import { catalogPriceRanges } from "@/lib/catalog-options";
+import {
+  catalogPriceRanges,
+  catalogSortOptions,
+} from "@/lib/catalog-options";
 
 export function CatalogFilters({
   sizes,
@@ -16,11 +19,13 @@ export function CatalogFilters({
 }: {
   sizes: string[];
   current: {
+    q: string;
     ukuran: string;
     tipe: string;
     harga: string;
     terbaik: string;
     baru: string;
+    urut: string;
   };
   kategori: string;
   resultCount: number;
@@ -50,7 +55,40 @@ export function CatalogFilters({
       {kategori && kategori !== "semua" ? (
         <input type="hidden" name="kategori" value={kategori} />
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+
+      <div className="grid gap-4 sm:grid-cols-[1.6fr_1fr]">
+        <label className="block">
+          <span className="text-xs font-medium text-espresso-500">
+            Cari produk
+          </span>
+          <input
+            type="search"
+            name="q"
+            defaultValue={current.q}
+            placeholder="Cari nama, bahan, atau motif"
+            className="mt-1.5 min-h-11 w-full rounded-full border border-line bg-ivory-50 px-5 text-sm"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-medium text-espresso-500">
+            Urutkan
+          </span>
+          <select
+            name="urut"
+            defaultValue={current.urut}
+            className="mt-1.5 min-h-11 w-full rounded-full border border-line bg-ivory-50 px-4 text-sm"
+          >
+            {catalogSortOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <label className="block">
           <span className="text-xs font-medium text-espresso-500">Ukuran</span>
           <select

@@ -8,6 +8,10 @@ import { SampleTag } from "@/components/ui/status";
 import { requireAdminPage } from "@/lib/auth";
 import { getAdminCatalog } from "@/lib/catalog";
 import { formatIDR } from "@/lib/format";
+import {
+  getLowStockVariants,
+  LOW_STOCK_THRESHOLD,
+} from "@/lib/inventory";
 import { getAdminOrders, getAdminStats } from "@/lib/order-queries";
 import { chatThreads, unansweredCount } from "@/lib/mock/inbox";
 
@@ -61,10 +65,11 @@ export default async function AdminPage({
     ? (params.view as ViewId)
     : "ringkasan";
 
-  const [stats, orders, products] = await Promise.all([
+  const [stats, orders, products, lowStock] = await Promise.all([
     getAdminStats(),
     getAdminOrders(),
     getAdminCatalog(),
+    getLowStockVariants(),
   ]);
 
   const sizes = Array.from(
@@ -205,6 +210,52 @@ export default async function AdminPage({
               </Link>
             </section>
           </div>
+
+          <section className="mt-6 rounded-3xl bg-ivory-50 p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-display text-xl">Stok menipis</h2>
+              <p className="text-xs text-espresso-500">
+                Sisa {LOW_STOCK_THRESHOLD} atau kurang
+              </p>
+            </div>
+
+            {lowStock.length === 0 ? (
+              <p className="mt-4 rounded-2xl bg-ivory-100 px-5 py-8 text-center text-sm text-espresso-500">
+                Semua ukuran produk aktif masih aman.
+              </p>
+            ) : (
+              <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {lowStock.map((variant) => (
+                  <li key={variant.id}>
+                    <Link
+                      href={`/admin/produk/${variant.productId}`}
+                      className="flex items-center justify-between gap-4 rounded-2xl bg-ivory-100 p-4 transition-colors hover:bg-ivory-200"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">
+                          {variant.productName}
+                        </span>
+                        <span className="mt-1 block text-xs text-espresso-500">
+                          Ukuran {variant.size}
+                        </span>
+                      </span>
+                      <span
+                        className={`shrink-0 text-sm font-semibold tabular-nums ${
+                          variant.stock === 0
+                            ? "text-clay-600"
+                            : "text-espresso-900"
+                        }`}
+                      >
+                        {variant.stock === 0
+                          ? "Habis"
+                          : `${variant.stock} sisa`}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </>
       ) : null}
 

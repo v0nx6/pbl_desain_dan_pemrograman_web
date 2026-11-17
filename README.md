@@ -28,15 +28,25 @@ Hugging Face Space.
   parang shirt, a linen koko shirt, and a tenun blazer. Product detail, size/stock selection, cart, checkout, QRIS,
   bank transfer (BCA, Mandiri, BNI, BRI), or COD payment, payment proof
   upload, and an order timeline.
+- Catalog search across product name, description, material, and collection
+  names. Sort by newest, best seller, cheapest, or most expensive.
+- Wishlist at `/akun/favorit`. Customers press the heart on a product card or
+  product page, then reopen the saved list from their account.
+- Product photo gallery with multiple angles, plus a per-size guide for chest,
+  body length, and waist measurements.
 - Checkout chooses between courier delivery and picking the order up at the
   store. Pickup orders have no shipping cost.
 - Registration, login, logout, Google sign-in through Firebase, and session
   cookies.
 - **Password reset with email OTP** at `/lupa-sandi`: the customer enters an
   email, receives a 6-digit code, verifies the code, then sets a new password.
-  A successful reset signs out every old session. In development without SMTP
+  A successful reset signs out every old session. In development without mail
   credentials the code is printed in the server log and shown on the reset
   screen so the flow can still be tested.
+- **Order notification emails**: Resend sends a receipt when an order is
+  created, a confirmation when payment proof arrives, and updates for every
+  admin status change. Delivery is best-effort, so a mail failure never blocks
+  an order.
 - **Signup address details**: name, email, password, phone number, street
   address, and an optional address description.
 - **Integrated OpenStreetMap preview**: the customer searches for a location,
@@ -55,12 +65,14 @@ Hugging Face Space.
 ### Admin back office
 
 - Live dashboard with revenue, pending verification, active product, and open
-  order counts.
+  order counts, plus a **low stock** list for active products with 3 units or
+  fewer.
 - Order list and detail pages, payment verification, status transitions,
   cancellation, and an order timeline.
 - **Product create/edit/deactivate** with a real image-upload form. The admin
   does not type a filesystem path. Product fields include size and stock,
-  single or couple category, price, best seller, and new product.
+  gallery photos, chest/body length/waist measurements per size, single or
+  couple category, price, best seller, and new product.
 - **Product filters** on `/admin?view=produk`: size, single or couple, price
   range, best seller, and new product.
 - **Site image management** at `/admin/gambar`: replace the three rotating
@@ -183,19 +195,39 @@ For multi-instance deployments, mount a writable persistent volume at
 | `POSTGRES_*` | Docker only | Credentials consumed by `compose.yml` |
 | `NEXT_PUBLIC_FIREBASE_*` | no | Firebase web app config; hides the Google button when empty |
 | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | no | Firebase service account for server-side ID token verification |
-| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | for password reset | Gmail account and app password used to send OTP emails |
-| `MAIL_FROM` | no | From header for OTP emails; defaults to `Boutique NC <GMAIL_USER>` |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | no | Override the SMTP server; defaults to `smtp.gmail.com:465` with TLS |
+| `RESEND_API_KEY` | for email | Resend API key; primary provider for OTP and order emails |
+| `MAIL_FROM` | no | Sender for every email; defaults to `Boutique NC <onboarding@resend.dev>` with Resend |
+| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | no | Gmail SMTP fallback used only when `RESEND_API_KEY` is empty |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | no | Override the fallback SMTP server; defaults to `smtp.gmail.com:465` with TLS |
 
 Never commit `.env`, `.data/`, tokens, or real passwords.
 
-## Password reset email (Gmail SMTP)
+## Email delivery (Resend or Gmail SMTP)
 
-Password reset sends a 6-digit one-time code by email through Gmail SMTP. The
-code is stored only as a scrypt hash, expires after 10 minutes, allows five
+Resend is the primary mail provider. It sends the password reset OTP and order
+notifications: order received, payment proof received, payment verified, proof
+rejected, processing, shipped, completed, and cancelled. Order emails are
+best-effort, so a mail failure never blocks an order transition.
+
+The OTP is stored only as a scrypt hash, expires after 10 minutes, allows five
 wrong attempts, and can be used once.
 
-### Gmail setup
+### Resend setup
+
+1. Create an account at `https://resend.com` and open **API Keys**.
+2. Create a key with sending permission, then put it in `RESEND_API_KEY`.
+3. For a first test, set `MAIL_FROM="Boutique NC <onboarding@resend.dev>"`.
+   Resend only delivers from this test address to the account owner's email.
+4. To send to any customer, open **Domains**, add your domain, publish the DNS
+   records Resend shows, wait for verification, then use an address on that
+   domain in `MAIL_FROM`, for example `Boutique NC <toko@domainmu.com>`.
+
+Leave `RESEND_API_KEY` empty to fall back to Gmail SMTP. Leave both empty in
+development to print the OTP to the server console and show it on the reset
+screen instead of sending mail. In production, a missing configuration returns
+HTTP 503 so a reset is never silently lost.
+
+### Gmail fallback setup
 
 1. Open the Google Account for the sender address.
 2. Enable **2-Step Verification** under **Security**. App passwords require it.

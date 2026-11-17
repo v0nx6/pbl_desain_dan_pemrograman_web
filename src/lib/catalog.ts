@@ -37,6 +37,9 @@ export const productWithVariants = {
   variants: {
     orderBy: { sortOrder: "asc" },
   },
+  images: {
+    orderBy: { sortOrder: "asc" },
+  },
 } satisfies Prisma.ProductInclude;
 
 type ProductRow = Prisma.ProductGetPayload<{
@@ -58,6 +61,22 @@ export function mapProduct(row: ProductRow): Product {
     tone: row.tone,
     image: usableImage(row.image),
     imageAlt: row.imageAlt,
+    images: row.images
+      .map((image) => ({
+        id: image.id,
+        url: usableImage(image.path),
+        alt: image.alt,
+      }))
+      .filter(
+        (image): image is { id: string; url: string; alt: string | null } =>
+          Boolean(image.url),
+      ),
+    sizeGuide: row.variants.map((variant) => ({
+      size: variant.size,
+      chest: variant.chestCm,
+      length: variant.lengthCm,
+      waist: variant.waistCm,
+    })),
     description: row.description,
     material: row.material,
     sizes: row.variants.map((variant) => variant.size),
@@ -67,6 +86,7 @@ export function mapProduct(row: ProductRow): Product {
     tryOnCategory: row.tryOnCategory,
     tryOnPhotoType: usablePhotoType(row.tryOnPhotoType),
     active: row.active,
+    createdAt: row.createdAt.toISOString(),
   };
 }
 
@@ -149,6 +169,44 @@ export function filterCatalog(
 
   if (filters.baru === "1") {
     items = items.filter((product) => product.isNew);
+  }
+
+  const query = filters.q?.trim().toLowerCase();
+  if (query) {
+    items = items.filter((product) => {
+      const haystack = [
+        product.name,
+        product.description,
+        product.material,
+        ...product.collections,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }
+
+  switch (filters.urut) {
+    case "terbaru":
+      items = [...items].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      break;
+    case "termurah":
+      items = [...items].sort((a, b) => a.price - b.price);
+      break;
+    case "termahal":
+      items = [...items].sort((a, b) => b.price - a.price);
+      break;
+    case "terlaris":
+      items = [...items].sort((a, b) => {
+        if (a.bestSeller !== b.bestSeller) return a.bestSeller ? -1 : 1;
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      });
+      break;
   }
 
   return items;
