@@ -112,6 +112,25 @@ export const getProductBySlug = cache(
   },
 );
 
+export const getRelatedProducts = cache(
+  async (product: { id: string; collections: Collection[] }, limit = 4): Promise<Product[]> => {
+    if (product.collections.length === 0) return [];
+
+    const rows = await prisma.product.findMany({
+      where: {
+        active: true,
+        id: { not: product.id },
+        collections: { hasSome: product.collections.map(prismaCollection) },
+      },
+      include: productWithVariants,
+      orderBy: [{ bestSeller: "desc" }, { createdAt: "desc" }],
+      take: limit,
+    });
+
+    return rows.map(mapProduct);
+  },
+);
+
 export const getAdminCatalog = cache(async (): Promise<Product[]> => {
   const rows = await prisma.product.findMany({
     include: productWithVariants,

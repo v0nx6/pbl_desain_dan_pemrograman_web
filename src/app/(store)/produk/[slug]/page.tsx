@@ -3,12 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BuyPanel } from "@/components/product-buy-panel";
 import { ProductGallery } from "@/components/product-gallery";
+import { ProductCard } from "@/components/product-card";
 import { ProductReviews } from "@/components/product-reviews";
 import { SizeGuide } from "@/components/size-guide";
 import { WishlistButton } from "@/components/wishlist-button";
 import { buttonStyles } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
-import { getProductBySlug } from "@/lib/catalog";
+import { getProductBySlug, getRelatedProducts } from "@/lib/catalog";
 import { isProductFavorite } from "@/lib/favorites";
 import { formatIDR } from "@/lib/format";
 import { getProductReviews } from "@/lib/reviews";
@@ -77,9 +78,10 @@ export default async function ProductPage({
   if (!product) notFound();
 
   const viewer = await getCurrentUser();
-  const [{ reviews, summary, hasReviewed }, saved] = await Promise.all([
+  const [{ reviews, summary, hasReviewed }, saved, related] = await Promise.all([
     getProductReviews(product.id, viewer?.id),
     viewer ? isProductFavorite(viewer.id, product.id) : Promise.resolve(false),
+    getRelatedProducts(product),
   ]);
 
   const productUrl = absoluteUrl(`/produk/${product.slug}`);
@@ -194,13 +196,46 @@ export default async function ProductPage({
             </div>
             <div className="flex justify-between gap-6">
               <dt className="text-espresso-500">Pembayaran</dt>
-              <dd className="text-right">QRIS, transfer bank, atau COD</dd>
+              <dd className="text-right">
+                QRIS, transfer bank, COD, atau bayar online
+              </dd>
             </div>
           </dl>
         </div>
       </div>
 
       <SizeGuide rows={product.sizeGuide} />
+
+      {related.length > 0 ? (
+        <section className="mt-16 border-t border-line pt-10">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.14em] text-clay-500 uppercase">
+                Pilihan lain
+              </p>
+              <h2 className="mt-2 font-display text-2xl sm:text-3xl">
+                Mungkin Anda juga suka
+              </h2>
+            </div>
+            <Link
+              href="/#koleksi"
+              className="text-sm underline underline-offset-4 hover:text-clay-500"
+            >
+              Lihat semua koleksi
+            </Link>
+          </div>
+          <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-4 lg:gap-x-6">
+            {related.map((item) => (
+              <ProductCard
+                key={item.slug}
+                product={item}
+                isLoggedIn={Boolean(viewer)}
+                nextPath={`/produk/${product.slug}`}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <ProductReviews
         productId={product.id}

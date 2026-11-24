@@ -285,10 +285,15 @@ export const orderCreateSchema = z
       .trim()
       .max(500, "Catatan maksimal 500 karakter.")
       .optional(),
-    paymentMethod: z.enum(["QRIS", "BANK_TRANSFER", "COD"], {
+    paymentMethod: z.enum(["QRIS", "BANK_TRANSFER", "COD", "MIDTRANS"], {
       error: "Pilih cara pembayaran.",
     }),
     bankName: z.enum(["BCA", "MANDIRI", "BNI", "BRI"]).optional(),
+    voucherCode: z
+      .string()
+      .trim()
+      .max(30, "Kode voucher maksimal 30 karakter.")
+      .optional(),
   })
   .superRefine((value, ctx) => {
     if (value.fulfillmentType === "COURIER") {
@@ -342,6 +347,81 @@ export const orderActionSchema = z.object({
     "cancel",
   ]),
   note: z.string().trim().max(500, "Catatan maksimal 500 karakter.").optional(),
+});
+
+export const orderShippingSchema = z.object({
+  courier: z
+    .string()
+    .trim()
+    .max(60, "Nama kurir maksimal 60 karakter.")
+    .optional(),
+  trackingNumber: z
+    .string()
+    .trim()
+    .max(60, "Nomor resi maksimal 60 karakter.")
+    .optional(),
+});
+
+const voucherCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .min(3, "Kode voucher minimal 3 karakter.")
+  .max(30, "Kode voucher maksimal 30 karakter.")
+  .regex(
+    /^[A-Z0-9-]+$/,
+    "Kode voucher hanya boleh huruf, angka, dan tanda hubung.",
+  );
+
+export const voucherInputSchema = z
+  .object({
+    code: voucherCodeSchema,
+    type: z.enum(["PERCENT", "FIXED"], { error: "Pilih jenis potongan." }),
+    value: z.coerce
+      .number({ error: "Masukkan nilai potongan." })
+      .int("Nilai potongan harus bilangan bulat.")
+      .min(1, "Nilai potongan minimal 1.")
+      .max(100000000, "Nilai potongan terlalu besar."),
+    minSpend: z.coerce
+      .number({ error: "Masukkan minimal belanja." })
+      .int("Minimal belanja harus bilangan bulat.")
+      .min(0, "Minimal belanja tidak boleh negatif.")
+      .max(100000000, "Minimal belanja terlalu besar.")
+      .default(0),
+    maxUses: z.preprocess(
+      (value) => (value === "" || value === null ? undefined : value),
+      z.coerce
+        .number()
+        .int("Batas pemakaian harus bilangan bulat.")
+        .min(1, "Batas pemakaian minimal 1.")
+        .max(100000, "Batas pemakaian terlalu besar.")
+        .optional(),
+    ),
+    expiresAt: z.preprocess(
+      (value) => (value === "" || value === null ? undefined : value),
+      z
+        .string()
+        .trim()
+        .refine(
+          (value) => !Number.isNaN(Date.parse(value)),
+          "Tanggal berlaku tidak valid.",
+        )
+        .optional(),
+    ),
+    active: z.boolean().default(true),
+  })
+  .refine((data) => data.type !== "PERCENT" || data.value <= 100, {
+    message: "Potongan persen maksimal 100.",
+    path: ["value"],
+  });
+
+export const voucherUpdateSchema = z.object({
+  active: z.boolean({ error: "Status voucher tidak valid." }),
+});
+
+export const voucherValidateSchema = z.object({
+  code: z.string().trim().min(1, "Masukkan kode voucher.").max(30),
+  subtotal: z.coerce.number().int().min(0),
 });
 
 export const financeEntrySchema = z.object({

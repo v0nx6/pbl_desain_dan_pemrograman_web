@@ -8,6 +8,7 @@ const items = [
   { id: "pesanan", label: "Pesanan", href: "/admin?view=pesanan" },
   { id: "produk", label: "Produk", href: "/admin?view=produk" },
   { id: "gambar", label: "Gambar situs", href: "/admin/gambar" },
+  { id: "voucher", label: "Voucher", href: "/admin/voucher" },
   { id: "keuangan", label: "Keuangan", href: "/admin/keuangan" },
   { id: "chat", label: "Chat", href: "/admin?view=chat" },
 ] as const;
@@ -21,6 +22,7 @@ export function AdminNav({ variant }: { variant: "sidebar" | "mobile" }) {
     if (pathname.startsWith("/admin/pesanan")) return id === "pesanan";
     if (pathname.startsWith("/admin/produk")) return id === "produk";
     if (pathname.startsWith("/admin/gambar")) return id === "gambar";
+    if (pathname.startsWith("/admin/voucher")) return id === "voucher";
     if (pathname.startsWith("/admin/keuangan")) return id === "keuangan";
     return pathname === "/admin" && view === id;
   }

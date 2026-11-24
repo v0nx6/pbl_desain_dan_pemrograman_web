@@ -26,8 +26,15 @@ Hugging Face Space.
   shopper filters for size, single or couple, price range, best seller, and new
   products. The `priya` collection includes three men's pieces: a batik
   parang shirt, a linen koko shirt, and a tenun blazer. Product detail, size/stock selection, cart, checkout, QRIS,
-  bank transfer (BCA, Mandiri, BNI, BRI), or COD payment, payment proof
-  upload, and an order timeline.
+  bank transfer (BCA, Mandiri, BNI, BRI), COD, or Midtrans Snap online
+  payment, payment proof upload, and an order timeline.
+- Voucher codes managed from the admin panel, with percent or fixed discounts,
+  minimum spend, usage limits, and expiry. The discount is recalculated on the
+  server when the order is created.
+- Courier and tracking number (resi) fields on each courier order, editable by
+  the admin and shown to the customer on the order detail page.
+- Related products on the product detail page, picked from overlapping
+  collections.
 - Catalog search across product name, description, material, and collection
   names. Sort by newest, best seller, cheapest, or most expensive.
 - Wishlist at `/akun/favorit`. Customers press the heart on a product card or
@@ -199,6 +206,8 @@ For multi-instance deployments, mount a writable persistent volume at
 | `MAIL_FROM` | no | Sender for every email; defaults to `Boutique NC <onboarding@resend.dev>` with Resend |
 | `GMAIL_USER`, `GMAIL_APP_PASSWORD` | no | Gmail SMTP fallback used only when `RESEND_API_KEY` is empty |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | no | Override the fallback SMTP server; defaults to `smtp.gmail.com:465` with TLS |
+| `MIDTRANS_SERVER_KEY` | no | Midtrans Snap server key; hides the online payment option when empty |
+| `MIDTRANS_IS_PRODUCTION` | no | Set to `true` only with production Midtrans keys; defaults to sandbox |
 
 Never commit `.env`, `.data/`, tokens, or real passwords.
 
@@ -386,6 +395,42 @@ src/app/(store)/produk/[slug]/page.tsx product metadata + Product JSON-LD
   - The four bank choices for bank transfer and a pickup order created end to
     end with BRI.
 
+## Online payments (Midtrans)
+
+Midtrans Snap is used through the REST API, so no extra SDK is installed. Set
+`MIDTRANS_SERVER_KEY` to a sandbox server key from
+`https://dashboard.sandbox.midtrans.com` under **Settings > Access Keys**. The
+"Bayar online" option only appears at checkout when the key is present.
+
+The flow is a redirect: the server creates a Snap transaction, the customer is
+sent to the Midtrans payment page, then returns to the order detail page. A
+webhook at `/api/midtrans/notification` verifies the SHA-512 signature from the
+server key before changing the order to paid or cancelled. Because a local
+server cannot receive webhooks, the order page also has a **Cek status
+pembayaran** button that asks Midtrans directly and applies the same logic.
+
+For sandbox testing, add the notification URL in the Midtrans dashboard:
+`https://your-domain/api/midtrans/notification`. Set `MIDTRANS_IS_PRODUCTION`
+to `true` only after switching to production keys.
+
+## Vouchers
+
+Admins create voucher codes at `/admin/voucher`. A voucher is either a percent
+discount or a fixed rupiah amount, with optional minimum spend, maximum uses,
+and expiry date. Customers enter the code at checkout; the preview calls
+`/api/vouchers/validate`, and the order endpoint recalculates and claims the
+voucher inside the same transaction. Usage is incremented atomically, so a
+voucher with a usage limit cannot be over-claimed.
+
+The seed adds two demo codes: `PBL10` (10 percent off, minimum Rp 300.000) and
+`HEMAT50K` (Rp 50.000 off, minimum Rp 500.000).
+
+## Shipping tracking
+
+Courier orders can store a courier name and tracking number (resi). Admins edit
+them from the order detail page under **Pengiriman**, and customers see the same
+data on their order page. Pickup orders skip this section.
+
 ## Map setup
 
 The address preview uses OpenStreetMap tiles and Nominatim search through the
@@ -398,9 +443,11 @@ high-traffic deployment, point `NOMINATIM_URL` at your own Nominatim instance.
 - The free Hugging Face Space can sleep or throttle; the UI reports this instead
   of faking a result. `FASHN_TIMEOUT_MS` may need lowering to `55000` on hosts
   with a 60-second request cap.
-- Payments are simulated. QRIS contains `BUKAN-PEMBAYARAN-NYATA`; bank transfer
-  uses a virtual account with a bank prefix. COD orders skip proof upload
-  and become paid when the admin marks them complete.
+- QRIS and bank transfer are simulated: QRIS contains
+  `BUKAN-PEMBAYARAN-NYATA`, and bank transfer uses a virtual account with a
+  bank prefix. COD orders skip proof upload and become paid when the admin
+  marks them complete. Midtrans is a real gateway but stays hidden until a
+  server key is configured.
 - Chat is local and labeled `Contoh data`.
 - Rate limiting is in memory per process; a multi-instance deployment needs a
   shared store.

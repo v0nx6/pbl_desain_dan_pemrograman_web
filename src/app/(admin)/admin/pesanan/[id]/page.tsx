@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminOrderActions } from "@/components/admin/order-actions";
+import { ShippingForm } from "@/components/admin/shipping-form";
 import { PaymentStatusText, StatusText } from "@/components/ui/status";
 import { requireAdminPage } from "@/lib/auth";
 import {
@@ -10,6 +11,7 @@ import {
   formatDateTime,
   formatIDR,
   fulfillmentLabels,
+  paymentChannelLabel,
   paymentMethodLabels,
 } from "@/lib/format";
 import { getOrderForAdmin } from "@/lib/order-queries";
@@ -126,6 +128,14 @@ export default async function AdminOrderDetailPage({
                 <dt className="text-espresso-500">Subtotal</dt>
                 <dd>{formatIDR(order.subtotal)}</dd>
               </div>
+              {order.discount > 0 ? (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-espresso-500">
+                    Diskon{order.voucherCode ? ` ${order.voucherCode}` : ""}
+                  </dt>
+                  <dd className="text-sage-700">-{formatIDR(order.discount)}</dd>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-4">
                 <dt className="text-espresso-500">Ongkos kirim</dt>
                 <dd>
@@ -161,6 +171,12 @@ export default async function AdminOrderDetailPage({
                   {order.paymentReference}
                 </dd>
               </div>
+              {paymentChannelLabel(order.paymentChannel) ? (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-espresso-500">Jalur bayar</dt>
+                  <dd>{paymentChannelLabel(order.paymentChannel)}</dd>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-4">
                 <dt className="text-espresso-500">Bukti diunggah</dt>
                 <dd>{formatDateTime(order.proofUploadedAt)}</dd>
@@ -172,6 +188,11 @@ export default async function AdminOrderDetailPage({
                 Pesanan COD. Pembayaran diterima saat kurir menyerahkan paket.
                 Status bayar otomatis jadi terverifikasi setelah pesanan
                 ditandai selesai.
+              </p>
+            ) : order.paymentMethod === "MIDTRANS" ? (
+              <p className="mt-4 rounded-2xl bg-ivory-100 p-4 text-sm text-espresso-700">
+                Pembayaran online lewat Midtrans. Status lunas diperbarui
+                otomatis dari notifikasi Midtrans.
               </p>
             ) : order.proofName ? (
               <div className="mt-4">
@@ -202,6 +223,22 @@ export default async function AdminOrderDetailPage({
               <AdminOrderActions orderId={order.id} status={order.status} />
             </div>
           </section>
+
+          {order.fulfillmentType === "COURIER" ? (
+            <section className="rounded-3xl bg-ivory-50 p-5 sm:p-6">
+              <h2 className="font-display text-2xl">Pengiriman</h2>
+              <p className="mt-1 text-sm text-espresso-500">
+                Isi kurir dan nomor resi supaya pelanggan bisa melacak paket.
+              </p>
+              <div className="mt-4">
+                <ShippingForm
+                  orderId={order.id}
+                  courier={order.courier}
+                  trackingNumber={order.trackingNumber}
+                />
+              </div>
+            </section>
+          ) : null}
 
           <section className="rounded-3xl bg-ivory-50 p-5 sm:p-6">
             <h2 className="font-display text-2xl">Riwayat</h2>

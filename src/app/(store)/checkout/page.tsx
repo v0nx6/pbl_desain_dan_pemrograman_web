@@ -1,6 +1,7 @@
 import { CheckoutForm } from "@/components/checkout-form";
 import { SectionLabel } from "@/components/ui/label";
 import { requirePageUser } from "@/lib/auth";
+import { midtransConfigured } from "@/lib/midtrans";
 
 export const metadata = { title: "Checkout" };
 
@@ -19,7 +20,7 @@ export default async function CheckoutPage() {
       </p>
 
       <div className="mt-8">
-        <CheckoutForm user={user} />
+        <CheckoutForm user={user} midtransEnabled={midtransConfigured} />
       </div>
     </div>
   );

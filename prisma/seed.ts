@@ -477,6 +477,31 @@ async function main() {
         },
     });
 
+    await prisma.voucher.upsert({
+        where: { code: "PBL10" },
+        update: {},
+        create: {
+            code: "PBL10",
+            type: "PERCENT",
+            value: 10,
+            minSpend: 300000,
+            maxUses: 100,
+            active: true,
+        },
+    });
+
+    await prisma.voucher.upsert({
+        where: { code: "HEMAT50K" },
+        update: {},
+        create: {
+            code: "HEMAT50K",
+            type: "FIXED",
+            value: 50000,
+            minSpend: 500000,
+            active: true,
+        },
+    });
+
     console.log(`Seeded ${products.length} products.`);
 }
 

@@ -7,12 +7,23 @@ import { ApiError } from "@/lib/api-helpers";
 import { prisma } from "@/lib/db";
 import { sendOrderEmail } from "@/lib/mail";
 import {
+  createSnapTransaction,
+  fetchMidtransStatus,
+  midtransOutcome,
+  type MidtransStatus,
+} from "@/lib/midtrans";
+import {
   calculateShipping,
   generateOrderNumber,
   generatePaymentReference,
   orderWithItems,
   toOrderDetail,
 } from "@/lib/orders";
+import {
+  normalizeVoucherCode,
+  voucherDiscount,
+  voucherProblem,
+} from "@/lib/vouchers";
 import type { orderCreateSchema } from "@/lib/validation";
 
 type OrderInput = z.infer<typeof orderCreateSchema>;
@@ -142,11 +153,47 @@ export async function createOrder(userId: string, input: OrderInput) {
           });
         }
 
+        let discount = 0;
+        let voucherCode: string | null = null;
+
+        if (input.voucherCode?.trim()) {
+          const code = normalizeVoucherCode(input.voucherCode);
+          const voucher = await tx.voucher.findUnique({ where: { code } });
+
+          if (!voucher) {
+            throw new ApiError(400, "Kode voucher tidak ditemukan.");
+          }
+
+          const problem = voucherProblem(voucher, subtotal);
+          if (problem) throw new ApiError(400, problem);
+
+          const claimed = await tx.voucher.updateMany({
+            where: {
+              id: voucher.id,
+              active: true,
+              ...(voucher.maxUses !== null
+                ? { usedCount: { lt: voucher.maxUses } }
+                : {}),
+            },
+            data: { usedCount: { increment: 1 } },
+          });
+
+          if (claimed.count !== 1) {
+            throw new ApiError(
+              409,
+              "Kode voucher baru saja habis dipakai. Coba lagi tanpa voucher.",
+            );
+          }
+
+          discount = voucherDiscount(voucher, subtotal);
+          voucherCode = voucher.code;
+        }
+
         const shippingCost =
           input.fulfillmentType === "PICKUP"
             ? 0
             : calculateShipping(subtotal);
-        const total = subtotal + shippingCost;
+        const total = subtotal + shippingCost - discount;
         const number = generateOrderNumber();
         const bankName =
           input.paymentMethod === "BANK_TRANSFER"
@@ -171,6 +218,8 @@ export async function createOrder(userId: string, input: OrderInput) {
             bankName,
             fulfillmentType: input.fulfillmentType,
             subtotal,
+            discount,
+            voucherCode,
             shippingCost,
             total,
             recipientName: input.recipientName,
@@ -364,4 +413,197 @@ export async function cancelOwnOrder(orderId: string, userId: string) {
   const detail = toOrderDetail(updated);
   await sendOrderEmail(detail, "cancel");
   return detail;
+}
+
+const midtransInclude = {
+  ...orderWithItems,
+  user: { select: { name: true, email: true } },
+};
+
+export async function createSnapPayment(orderId: string) {
+  const row = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: midtransInclude,
+  });
+
+  if (!row) throw new ApiError(404, "Pesanan tidak ditemukan.");
+  if (row.paymentMethod !== "MIDTRANS") {
+    throw new ApiError(400, "Pesanan ini tidak memakai pembayaran online.");
+  }
+  if (row.status !== "PENDING_PAYMENT") {
+    throw new ApiError(409, "Pesanan ini sudah tidak menunggu pembayaran.");
+  }
+
+  if (row.snapToken && row.snapRedirectUrl) {
+    return { token: row.snapToken, redirectUrl: row.snapRedirectUrl };
+  }
+
+  try {
+    const snap = await createSnapTransaction(toOrderDetail(row));
+    await prisma.order.update({
+      where: { id: row.id },
+      data: {
+        midtransOrderId: row.number,
+        snapToken: snap.token,
+        snapRedirectUrl: snap.redirectUrl,
+      },
+    });
+    return snap;
+  } catch (error) {
+    console.error("Gagal membuat transaksi Midtrans:", error);
+    throw new ApiError(
+      502,
+      "Pembayaran online belum bisa dibuka. Coba lagi atau hubungi admin.",
+    );
+  }
+}
+
+async function orderByMidtransId(orderId: string) {
+  return prisma.order.findFirst({
+    where: {
+      OR: [{ midtransOrderId: orderId }, { number: orderId }],
+    },
+    include: midtransInclude,
+  });
+}
+
+export async function applyMidtransStatus(
+  payload: MidtransStatus,
+): Promise<void> {
+  if (!payload.order_id) return;
+
+  const order = await orderByMidtransId(payload.order_id);
+  if (!order) {
+    console.warn(`Notifikasi Midtrans untuk pesanan tak dikenal: ${payload.order_id}`);
+    return;
+  }
+
+  const channel = payload.payment_type ?? order.paymentChannel;
+  const outcome = midtransOutcome(payload);
+
+  if (outcome === "paid") {
+    const result = await prisma.order.updateMany({
+      where: {
+        id: order.id,
+        status: { in: ["PENDING_PAYMENT", "AWAITING_VERIFICATION"] },
+      },
+      data: {
+        status: "PAID",
+        paymentStatus: "VERIFIED",
+        paidAt: new Date(),
+        paymentChannel: channel,
+      },
+    });
+
+    if (result.count === 1) {
+      const updated = await prisma.order.findUniqueOrThrow({
+        where: { id: order.id },
+        include: midtransInclude,
+      });
+      await sendOrderEmail(toOrderDetail(updated), "verify");
+    }
+    return;
+  }
+
+  if (outcome === "failed") {
+    const updated = await prisma.$transaction(async (tx) => {
+      const current = await tx.order.findUnique({
+        where: { id: order.id },
+        select: { status: true },
+      });
+
+      if (!current || current.status !== "PENDING_PAYMENT") return null;
+
+      await restoreStock(tx, order.id);
+      const result = await tx.order.updateMany({
+        where: { id: order.id, status: "PENDING_PAYMENT" },
+        data: {
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+          stockRestored: true,
+          paymentChannel: channel,
+          adminNote: "Pembayaran Midtrans kedaluwarsa atau dibatalkan.",
+        },
+      });
+
+      if (result.count !== 1) return null;
+
+      return tx.order.findUniqueOrThrow({
+        where: { id: order.id },
+        include: midtransInclude,
+      });
+    });
+
+    if (updated) {
+      await sendOrderEmail(toOrderDetail(updated), "cancel");
+    }
+    return;
+  }
+
+  if (channel && channel !== order.paymentChannel) {
+    await prisma.order.updateMany({
+      where: { id: order.id },
+      data: { paymentChannel: channel },
+    });
+  }
+}
+
+export async function syncMidtransPayment(orderId: string) {
+  const row = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      number: true,
+      paymentMethod: true,
+      midtransOrderId: true,
+    },
+  });
+
+  if (!row) throw new ApiError(404, "Pesanan tidak ditemukan.");
+  if (row.paymentMethod !== "MIDTRANS") {
+    throw new ApiError(400, "Pesanan ini tidak memakai pembayaran online.");
+  }
+
+  let payload: MidtransStatus;
+  try {
+    payload = await fetchMidtransStatus(row.midtransOrderId ?? row.number);
+  } catch (error) {
+    console.error("Gagal membaca status Midtrans:", error);
+    throw new ApiError(
+      502,
+      "Status pembayaran belum bisa dicek. Coba lagi sebentar lagi.",
+    );
+  }
+
+  await applyMidtransStatus(payload);
+
+  const updated = await prisma.order.findUniqueOrThrow({
+    where: { id: orderId },
+    include: midtransInclude,
+  });
+
+  return toOrderDetail(updated);
+}
+
+export async function saveOrderShipping(
+  orderId: string,
+  input: { courier?: string; trackingNumber?: string },
+) {
+  const row = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true },
+  });
+
+  if (!row) throw new ApiError(404, "Pesanan tidak ditemukan.");
+
+  const updated = await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      courier: input.courier?.trim() || null,
+      trackingNumber: input.trackingNumber?.trim() || null,
+    },
+    include: midtransInclude,
+  });
+
+  return toOrderDetail(updated);
 }

@@ -102,7 +102,7 @@ export type OrderStatus =
   | "COMPLETED"
   | "CANCELLED";
 
-export type PaymentMethod = "QRIS" | "BANK_TRANSFER" | "COD";
+export type PaymentMethod = "QRIS" | "BANK_TRANSFER" | "COD" | "MIDTRANS";
 
 export type BankName = "BCA" | "MANDIRI" | "BNI" | "BRI";
 
@@ -137,6 +137,8 @@ export type OrderSummary = {
 
 export type OrderDetail = OrderSummary & {
   subtotal: number;
+  discount: number;
+  voucherCode: string | null;
   shippingCost: number;
   recipientName: string;
   phone: string;
@@ -147,6 +149,9 @@ export type OrderDetail = OrderSummary & {
   paymentReference: string;
   proofName: string | null;
   proofUploadedAt: string | null;
+  courier: string | null;
+  trackingNumber: string | null;
+  paymentChannel: string | null;
   adminNote: string | null;
   paidAt: string | null;
   shippedAt: string | null;
@@ -190,4 +195,25 @@ export type ChatThread = {
   name: string;
   preview: string;
   unread: number;
+};
+
+export type VoucherType = "PERCENT" | "FIXED";
+
+export type VoucherView = {
+  id: string;
+  code: string;
+  type: VoucherType;
+  value: number;
+  minSpend: number;
+  maxUses: number | null;
+  usedCount: number;
+  active: boolean;
+  expiresAt: string | null;
+  createdAt: string;
+};
+
+export type VoucherPreview = {
+  code: string;
+  discount: number;
+  description: string;
 };

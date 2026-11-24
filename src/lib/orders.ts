@@ -48,6 +48,10 @@ export function generatePaymentReference(
     return `COD|${number}|BAYAR-DI-TEMPAT`;
   }
 
+  if (method === "MIDTRANS") {
+    return `MIDTRANS|${number}`;
+  }
+
   const digest = createHash("sha256").update(number).digest("hex");
   const numeric = BigInt(`0x${digest.slice(0, 12)}`) % BigInt(1000000000000);
   return `${bankName ?? "BANK"}-8808${numeric.toString().padStart(12, "0")}`;
@@ -63,7 +67,9 @@ export function canUploadProof(order: {
   paymentStatus: PaymentStatus;
   paymentMethod: Order["paymentMethod"];
 }): boolean {
-  if (order.paymentMethod === "COD") return false;
+  if (order.paymentMethod === "COD" || order.paymentMethod === "MIDTRANS") {
+    return false;
+  }
 
   return (
     order.status === "PENDING_PAYMENT" ||
@@ -121,6 +127,8 @@ export function toOrderDetail(order: OrderWithItems): OrderDetail {
   return {
     ...toOrderSummary(order),
     subtotal: order.subtotal,
+    discount: order.discount,
+    voucherCode: order.voucherCode,
     shippingCost: order.shippingCost,
     recipientName: order.recipientName,
     phone: order.phone,
@@ -131,6 +139,9 @@ export function toOrderDetail(order: OrderWithItems): OrderDetail {
     paymentReference: order.paymentReference,
     proofName: order.proofName,
     proofUploadedAt: order.proofUploadedAt?.toISOString() ?? null,
+    courier: order.courier,
+    trackingNumber: order.trackingNumber,
+    paymentChannel: order.paymentChannel,
     adminNote: order.adminNote,
     paidAt: order.paidAt?.toISOString() ?? null,
     shippedAt: order.shippedAt?.toISOString() ?? null,

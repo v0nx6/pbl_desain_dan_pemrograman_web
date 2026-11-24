@@ -56,6 +56,7 @@ export const paymentMethodLabels: Record<PaymentMethod, string> = {
   QRIS: "QRIS",
   BANK_TRANSFER: "Transfer bank",
   COD: "Bayar di tempat",
+  MIDTRANS: "Pembayaran online",
 };
 
 export const bankLabels: Record<BankName, string> = {
@@ -76,6 +77,27 @@ export const paymentStatusLabels: Record<PaymentStatus, string> = {
   VERIFIED: "Terverifikasi",
   REJECTED: "Bukti ditolak",
 };
+
+const paymentChannelNames: Record<string, string> = {
+  credit_card: "Kartu kredit",
+  bank_transfer: "Transfer bank",
+  echannel: "Mandiri Bill",
+  gopay: "GoPay",
+  shopeepay: "ShopeePay",
+  qris: "QRIS",
+  cstore: "Gerai ritel",
+  akulaku: "Akulaku",
+  bca_va: "BCA Virtual Account",
+  bni_va: "BNI Virtual Account",
+  bri_va: "BRI Virtual Account",
+  permata_va: "Permata Virtual Account",
+  other_va: "Virtual Account",
+};
+
+export function paymentChannelLabel(channel: string | null): string | null {
+  if (!channel) return null;
+  return paymentChannelNames[channel] ?? channel;
+}
 
 export const orderStatusStyles: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "text-amber-700",

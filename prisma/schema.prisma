@@ -37,6 +37,12 @@ enum PaymentMethod {
   QRIS
   BANK_TRANSFER
   COD
+  MIDTRANS
+}
+
+enum VoucherType {
+  PERCENT
+  FIXED
 }
 
 enum BankName {
@@ -164,6 +170,8 @@ model Order {
   fulfillmentType  FulfillmentType @default(COURIER)
   paymentStatus    PaymentStatus   @default(UNPAID)
   subtotal         Int
+  discount         Int             @default(0)
+  voucherCode      String?
   shippingCost     Int
   total            Int
   recipientName    String
@@ -177,6 +185,12 @@ model Order {
   proofMime        String?
   proofName        String?
   proofUploadedAt  DateTime?
+  courier          String?
+  trackingNumber   String?
+  midtransOrderId  String?
+  snapToken        String?
+  snapRedirectUrl  String?
+  paymentChannel   String?
   adminNote        String?
   stockRestored    Boolean         @default(false)
   paidAt           DateTime?
@@ -316,4 +330,20 @@ model TryOnJob {
   updatedAt  DateTime    @updatedAt
 
   @@index([userId])
+}
+
+model Voucher {
+  id        String      @id @default(cuid())
+  code      String      @unique
+  type      VoucherType
+  value     Int
+  minSpend  Int         @default(0)
+  maxUses   Int?
+  usedCount Int         @default(0)
+  active    Boolean     @default(true)
+  expiresAt DateTime?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([active, expiresAt])
 }

@@ -13,6 +13,7 @@ import type {
   FulfillmentType,
   PaymentMethod,
   SessionUser,
+  VoucherPreview,
 } from "@/lib/types";
 
 const SHIPPING_FLAT = 25000;
@@ -46,7 +47,7 @@ const fulfillmentOptions: {
   },
 ];
 
-const paymentOptions: {
+const basePaymentOptions: {
   value: PaymentMethod;
   label: string;
   hint: string;
@@ -68,9 +69,25 @@ const paymentOptions: {
   },
 ];
 
+const midtransOption: {
+  value: PaymentMethod;
+  label: string;
+  hint: string;
+} = {
+  value: "MIDTRANS",
+  label: "Bayar online",
+  hint: "Kartu, e-wallet, atau VA lewat Midtrans. Status lunas otomatis.",
+};
+
 const banks: BankName[] = ["BCA", "MANDIRI", "BNI", "BRI"];
 
-export function CheckoutForm({ user }: { user: SessionUser }) {
+export function CheckoutForm({
+  user,
+  midtransEnabled,
+}: {
+  user: SessionUser;
+  midtransEnabled: boolean;
+}) {
   const router = useRouter();
   const { detailed, lines, subtotal, clear } = useCart();
 
@@ -87,8 +104,15 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [voucherInput, setVoucherInput] = useState("");
+  const [voucher, setVoucher] = useState<VoucherPreview | null>(null);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [applyingVoucher, setApplyingVoucher] = useState(false);
 
   const isPickup = fulfillmentType === "PICKUP";
+  const paymentOptions = midtransEnabled
+    ? [...basePaymentOptions, midtransOption]
+    : basePaymentOptions;
   const availablePayments = isPickup
     ? paymentOptions.filter((option) => option.value !== "COD")
     : paymentOptions;
@@ -97,14 +121,60 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
     : subtotal >= FREE_SHIPPING_MIN
       ? 0
       : SHIPPING_FLAT;
-  const total = subtotal + shippingCost;
+  const discount = voucher ? Math.min(voucher.discount, subtotal) : 0;
+  const total = subtotal + shippingCost - discount;
   const missingLines = lines.length - detailed.length;
   const activePaymentLabel =
     paymentMethod === "BANK_TRANSFER"
       ? `Transfer ${bankLabels[bankName]}`
       : paymentMethod === "COD"
         ? "Bayar di tempat (COD)"
-        : "QRIS";
+        : paymentMethod === "MIDTRANS"
+          ? "Bayar online"
+          : "QRIS";
+
+  async function applyVoucher() {
+    const code = voucherInput.trim();
+    setVoucherError(null);
+
+    if (!code) {
+      setVoucher(null);
+      return;
+    }
+
+    setApplyingVoucher(true);
+    try {
+      const response = await fetch("/api/vouchers/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, subtotal }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        voucher?: VoucherPreview;
+        error?: string;
+      };
+
+      if (!response.ok || !data.voucher) {
+        setVoucher(null);
+        setVoucherError(data.error ?? "Kode voucher tidak bisa dipakai.");
+        return;
+      }
+
+      setVoucher(data.voucher);
+      setVoucherInput(data.voucher.code);
+    } catch {
+      setVoucher(null);
+      setVoucherError("Tidak bisa menghubungi server. Coba lagi.");
+    } finally {
+      setApplyingVoucher(false);
+    }
+  }
+
+  function clearVoucher() {
+    setVoucher(null);
+    setVoucherInput("");
+    setVoucherError(null);
+  }
 
   function chooseFulfillment(value: FulfillmentType) {
     setFulfillmentType(value);
@@ -161,6 +231,7 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
           note: note.trim() || undefined,
           paymentMethod,
           bankName: paymentMethod === "BANK_TRANSFER" ? bankName : undefined,
+          voucherCode: voucher?.code,
         }),
       });
 
@@ -193,6 +264,26 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
       }
 
       clear();
+
+      if (paymentMethod === "MIDTRANS") {
+        try {
+          const payResponse = await fetch(
+            `/api/orders/${data.order.id}/midtrans`,
+            { method: "POST" },
+          );
+          const pay = (await payResponse.json().catch(() => ({}))) as {
+            redirectUrl?: string;
+          };
+
+          if (payResponse.ok && pay.redirectUrl) {
+            window.location.assign(pay.redirectUrl);
+            return;
+          }
+        } catch {
+          // Pesanan tetap tersimpan. Halaman pesanan menyediakan tombol bayar ulang.
+        }
+      }
+
       router.push(`/akun/pesanan/${data.order.id}`);
       router.refresh();
     } catch {
@@ -344,7 +435,8 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
         <fieldset className="rounded-[var(--radius-card)] border border-line bg-ivory-50 p-5 sm:p-6">
           <legend className="px-1 font-display text-2xl">Pembayaran</legend>
           <p className="mt-2 text-sm text-espresso-500">
-            Pembayaran akan dicek oleh admin sebelum pesanan diproses.
+            Pilih cara pembayaran. Transfer dan QRIS dicek admin, pembayaran
+            online lewat Midtrans dikonfirmasi otomatis.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {availablePayments.map((method) => {
@@ -458,11 +550,70 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
             </p>
           ) : null}
 
+          <div className="mt-4 border-t border-line pt-4">
+            <label
+              htmlFor="kode-voucher"
+              className="block text-sm font-medium"
+            >
+              Kode voucher
+            </label>
+            <div className="mt-2 flex gap-2">
+              <input
+                id="kode-voucher"
+                value={voucherInput}
+                onChange={(event) => setVoucherInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void applyVoucher();
+                  }
+                }}
+                placeholder="Contoh: PBL10"
+                autoComplete="off"
+                className="min-h-11 min-w-0 flex-1 rounded-full border border-line bg-ivory-50 px-5 text-sm uppercase"
+              />
+              {voucher ? (
+                <Button
+                  type="button"
+                  variant="quiet"
+                  onClick={clearVoucher}
+                >
+                  Hapus
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void applyVoucher()}
+                  disabled={applyingVoucher || voucherInput.trim() === ""}
+                >
+                  {applyingVoucher ? "Mengecek..." : "Pakai"}
+                </Button>
+              )}
+            </div>
+            {voucher ? (
+              <p className="mt-2 text-xs text-sage-700">
+                {voucher.code} dipakai. {voucher.description}
+              </p>
+            ) : null}
+            {voucherError ? (
+              <p className="mt-2 text-xs text-clay-600">{voucherError}</p>
+            ) : null}
+          </div>
+
           <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-espresso-500">Subtotal</dt>
               <dd>{formatIDR(subtotal)}</dd>
             </div>
+            {discount > 0 ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-espresso-500">
+                  Diskon{voucher ? ` ${voucher.code}` : ""}
+                </dt>
+                <dd className="text-sage-700">-{formatIDR(discount)}</dd>
+              </div>
+            ) : null}
             <div className="flex justify-between gap-4">
               <dt className="text-espresso-500">Cara terima</dt>
               <dd>{isPickup ? "Ambil di toko" : "Kurir"}</dd>
@@ -497,8 +648,11 @@ export function CheckoutForm({ user }: { user: SessionUser }) {
           </Button>
           <p className="mt-3 text-center text-xs text-espresso-500">
             {isPickup
-              ? "Ambil di toko tanpa ongkir. Pembayaran bisa QRIS atau transfer."
+              ? "Ambil di toko tanpa ongkir. Pembayaran bisa QRIS, transfer, atau online."
               : "Ongkir Rp 25.000, gratis untuk pesanan mulai Rp 1.000.000."}
+          </p>
+          <p className="mt-1 text-center text-xs text-espresso-500">
+            Voucher dicek ulang di server saat pesanan dibuat.
           </p>
         </div>
       </aside>

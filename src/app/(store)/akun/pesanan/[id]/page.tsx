@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CancelOrderButton } from "@/components/cancel-order-button";
+import { OrderPaymentActions } from "@/components/order-payment-actions";
 import { OrderProofUpload } from "@/components/order-proof-upload";
 import { buttonStyles } from "@/components/ui/button";
 import { SectionLabel } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import {
   formatDateTime,
   formatIDR,
   fulfillmentLabels,
+  paymentChannelLabel,
   paymentMethodLabels,
 } from "@/lib/format";
 import { getOrderForUser } from "@/lib/order-queries";
@@ -93,6 +95,20 @@ export default async function OrderDetailPage({
                   <PaymentStatusText status={order.paymentStatus} />
                 </dd>
               </div>
+              {paymentChannelLabel(order.paymentChannel) ? (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-espresso-500">Jalur bayar</dt>
+                  <dd>{paymentChannelLabel(order.paymentChannel)}</dd>
+                </div>
+              ) : null}
+              {order.discount > 0 ? (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-espresso-500">
+                    Diskon{order.voucherCode ? ` ${order.voucherCode}` : ""}
+                  </dt>
+                  <dd className="text-sage-700">-{formatIDR(order.discount)}</dd>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-4">
                 <dt className="text-espresso-500">Total</dt>
                 <dd className="font-medium">{formatIDR(order.total)}</dd>
@@ -100,8 +116,17 @@ export default async function OrderDetailPage({
             </dl>
 
             <p className="mt-4 rounded-xl border border-amber-700/40 bg-ivory-100 p-3 text-xs leading-relaxed text-amber-700">
-              Pembayaran akan dicek oleh admin sebelum pesanan diproses.
+              {order.paymentMethod === "MIDTRANS"
+                ? "Pembayaran online diproses oleh Midtrans. Status lunas muncul otomatis setelah pembayaran berhasil."
+                : order.paymentMethod === "COD"
+                  ? "Pesanan ini dibayar saat paket diterima."
+                  : "Pembayaran akan dicek oleh admin sebelum pesanan diproses."}
             </p>
+
+            {order.paymentMethod === "MIDTRANS" &&
+            order.status === "PENDING_PAYMENT" ? (
+              <OrderPaymentActions orderId={order.id} />
+            ) : null}
 
             {order.paymentMethod === "QRIS" ? (
               <div className="mt-4 rounded-2xl border border-line bg-white p-4 text-center">
@@ -137,7 +162,8 @@ export default async function OrderDetailPage({
               </p>
             ) : null}
 
-            {order.paymentMethod !== "COD" ? (
+            {order.paymentMethod !== "COD" &&
+            order.paymentMethod !== "MIDTRANS" ? (
               <div className="mt-6 border-t border-line pt-5">
                 <OrderProofUpload
                   orderId={order.id}
@@ -177,6 +203,14 @@ export default async function OrderDetailPage({
                 <dt className="text-espresso-500">Subtotal</dt>
                 <dd>{formatIDR(order.subtotal)}</dd>
               </div>
+              {order.discount > 0 ? (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-espresso-500">
+                    Diskon{order.voucherCode ? ` ${order.voucherCode}` : ""}
+                  </dt>
+                  <dd className="text-sage-700">-{formatIDR(order.discount)}</dd>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-4">
                 <dt className="text-espresso-500">Ongkos kirim</dt>
                 <dd>
@@ -255,6 +289,23 @@ export default async function OrderDetailPage({
                 ) : null}
               </address>
             )}
+
+            {order.fulfillmentType === "COURIER" &&
+            (order.courier || order.trackingNumber) ? (
+              <div className="mt-4 border-t border-line pt-4 text-sm">
+                <p className="text-espresso-500">Pengiriman</p>
+                <p className="mt-1 font-medium">{order.courier ?? "Kurir"}</p>
+                {order.trackingNumber ? (
+                  <p className="mt-1 font-mono text-sm tracking-wide break-all">
+                    {order.trackingNumber}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-espresso-500">
+                    Nomor resi belum tersedia.
+                  </p>
+                )}
+              </div>
+            ) : null}
           </section>
 
           <Link
