@@ -285,10 +285,9 @@ export const orderCreateSchema = z
       .trim()
       .max(500, "Catatan maksimal 500 karakter.")
       .optional(),
-    paymentMethod: z.enum(["QRIS", "BANK_TRANSFER", "COD", "MIDTRANS"], {
+    paymentMethod: z.enum(["QRIS", "COD", "MIDTRANS"], {
       error: "Pilih cara pembayaran.",
     }),
-    bankName: z.enum(["BCA", "MANDIRI", "BNI", "BRI"]).optional(),
     voucherCode: z
       .string()
       .trim()
@@ -325,14 +324,6 @@ export const orderCreateSchema = z
         code: "custom",
         path: ["paymentMethod"],
         message: "COD hanya untuk pesanan yang dikirim kurir.",
-      });
-    }
-
-    if (value.paymentMethod === "BANK_TRANSFER" && !value.bankName) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["bankName"],
-        message: "Pilih bank untuk transfer.",
       });
     }
   });

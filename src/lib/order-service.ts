@@ -195,15 +195,10 @@ export async function createOrder(userId: string, input: OrderInput) {
             : calculateShipping(subtotal);
         const total = subtotal + shippingCost - discount;
         const number = generateOrderNumber();
-        const bankName =
-          input.paymentMethod === "BANK_TRANSFER"
-            ? (input.bankName ?? null)
-            : null;
         const paymentReference = generatePaymentReference(
           input.paymentMethod,
           number,
           total,
-          bankName,
         );
 
         return tx.order.create({
@@ -215,7 +210,6 @@ export async function createOrder(userId: string, input: OrderInput) {
                 ? "PROCESSING"
                 : "PENDING_PAYMENT",
             paymentMethod: input.paymentMethod,
-            bankName,
             fulfillmentType: input.fulfillmentType,
             subtotal,
             discount,

@@ -196,9 +196,7 @@ export default async function ProductPage({
             </div>
             <div className="flex justify-between gap-6">
               <dt className="text-espresso-500">Pembayaran</dt>
-              <dd className="text-right">
-                QRIS, transfer bank, COD, atau bayar online
-              </dd>
+              <dd className="text-right">QRIS, COD, atau bayar online</dd>
             </div>
           </dl>
         </div>

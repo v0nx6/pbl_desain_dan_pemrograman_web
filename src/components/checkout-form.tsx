@@ -7,9 +7,8 @@ import { useCart } from "@/components/cart-provider";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { ProductMedia } from "@/components/ui/product-media";
-import { bankLabels, formatIDR, lineKey } from "@/lib/format";
+import { formatIDR, lineKey } from "@/lib/format";
 import type {
-  BankName,
   FulfillmentType,
   PaymentMethod,
   SessionUser,
@@ -27,7 +26,6 @@ type FieldErrors = {
   postalCode?: string;
   note?: string;
   paymentMethod?: string;
-  bankName?: string;
 };
 
 const fulfillmentOptions: {
@@ -58,11 +56,6 @@ const basePaymentOptions: {
     hint: "Kode QRIS tampil setelah pesanan dibuat.",
   },
   {
-    value: "BANK_TRANSFER",
-    label: "Transfer bank",
-    hint: "Pilih bank, nomor VA tampil setelah pesanan dibuat.",
-  },
-  {
     value: "COD",
     label: "Bayar di tempat (COD)",
     hint: "Bayar ke kurir saat paket datang. Khusus pengiriman kurir.",
@@ -78,8 +71,6 @@ const midtransOption: {
   label: "Bayar online",
   hint: "Kartu, e-wallet, atau VA lewat Midtrans. Status lunas otomatis.",
 };
-
-const banks: BankName[] = ["BCA", "MANDIRI", "BNI", "BRI"];
 
 export function CheckoutForm({
   user,
@@ -100,7 +91,6 @@ export function CheckoutForm({
   const [postalCode, setPostalCode] = useState(user.postalCode ?? "");
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("QRIS");
-  const [bankName, setBankName] = useState<BankName>("BCA");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -125,13 +115,11 @@ export function CheckoutForm({
   const total = subtotal + shippingCost - discount;
   const missingLines = lines.length - detailed.length;
   const activePaymentLabel =
-    paymentMethod === "BANK_TRANSFER"
-      ? `Transfer ${bankLabels[bankName]}`
-      : paymentMethod === "COD"
-        ? "Bayar di tempat (COD)"
-        : paymentMethod === "MIDTRANS"
-          ? "Bayar online"
-          : "QRIS";
+    paymentMethod === "COD"
+      ? "Bayar di tempat (COD)"
+      : paymentMethod === "MIDTRANS"
+        ? "Bayar online"
+        : "QRIS";
 
   async function applyVoucher() {
     const code = voucherInput.trim();
@@ -179,7 +167,7 @@ export function CheckoutForm({
   function chooseFulfillment(value: FulfillmentType) {
     setFulfillmentType(value);
     if (value === "PICKUP" && paymentMethod === "COD") {
-      setPaymentMethod("BANK_TRANSFER");
+      setPaymentMethod("QRIS");
     }
   }
 
@@ -230,7 +218,6 @@ export function CheckoutForm({
           postalCode: isPickup ? undefined : postalCode.trim(),
           note: note.trim() || undefined,
           paymentMethod,
-          bankName: paymentMethod === "BANK_TRANSFER" ? bankName : undefined,
           voucherCode: voucher?.code,
         }),
       });
@@ -252,7 +239,6 @@ export function CheckoutForm({
           "postalCode",
           "note",
           "paymentMethod",
-          "bankName",
         ] as const) {
           if (details[key]?.[0]) mapped[key] = details[key]?.[0];
         }
@@ -435,8 +421,8 @@ export function CheckoutForm({
         <fieldset className="rounded-[var(--radius-card)] border border-line bg-ivory-50 p-5 sm:p-6">
           <legend className="px-1 font-display text-2xl">Pembayaran</legend>
           <p className="mt-2 text-sm text-espresso-500">
-            Pilih cara pembayaran. Transfer dan QRIS dicek admin, pembayaran
-            online lewat Midtrans dikonfirmasi otomatis.
+            Pilih cara pembayaran. QRIS dicek admin, pembayaran online lewat
+            Midtrans dikonfirmasi otomatis.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {availablePayments.map((method) => {
@@ -468,40 +454,6 @@ export function CheckoutForm({
               );
             })}
           </div>
-
-          {paymentMethod === "BANK_TRANSFER" ? (
-            <div className="mt-5 border-t border-line pt-5">
-              <p className="text-sm font-medium">Pilih bank</p>
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {banks.map((bank) => {
-                  const selected = bankName === bank;
-                  return (
-                    <label
-                      key={bank}
-                      className={`block cursor-pointer rounded-xl border px-3 py-3 text-center text-sm transition-colors focus-within:outline-2 focus-within:outline-clay-500 focus-within:outline-offset-2 ${
-                        selected
-                          ? "border-clay-500 bg-clay-50 font-medium"
-                          : "border-line bg-ivory-50 hover:border-espresso-700"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="bank"
-                        value={bank}
-                        checked={selected}
-                        onChange={() => setBankName(bank)}
-                        className="sr-only"
-                      />
-                      {bankLabels[bank]}
-                    </label>
-                  );
-                })}
-              </div>
-              {errors.bankName ? (
-                <p className="mt-2 text-xs text-clay-600">{errors.bankName}</p>
-              ) : null}
-            </div>
-          ) : null}
 
           {errors.paymentMethod ? (
             <p className="mt-3 text-xs text-clay-600">

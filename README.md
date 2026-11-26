@@ -25,8 +25,7 @@ Hugging Face Space.
 - Catalog with collection filters (`baru`, `batik`, `kebaya`, `priya`) plus
   shopper filters for size, single or couple, price range, best seller, and new
   products. The `priya` collection includes three men's pieces: a batik
-  parang shirt, a linen koko shirt, and a tenun blazer. Product detail, size/stock selection, cart, checkout, QRIS,
-  bank transfer (BCA, Mandiri, BNI, BRI), COD, or Midtrans Snap online
+  parang shirt, a linen koko shirt, and a tenun blazer. Product detail, size/stock selection, cart, checkout, manual QRIS, COD, or Midtrans Snap online
   payment, payment proof upload, and an order timeline.
 - Voucher codes managed from the admin panel, with percent or fixed discounts,
   minimum spend, usage limits, and expiry. The discount is recalculated on the
@@ -392,8 +391,7 @@ src/app/(store)/produk/[slug]/page.tsx product metadata + Product JSON-LD
   - The chat shortcut on the customer profile.
   - Courier and pickup choice on checkout, including address fields that
     disappear for pickup and COD that is only offered for courier.
-  - The four bank choices for bank transfer and a pickup order created end to
-    end with BRI.
+  - The Midtrans option staying hidden while `MIDTRANS_SERVER_KEY` is empty.
 
 ## Online payments (Midtrans)
 
@@ -443,11 +441,9 @@ high-traffic deployment, point `NOMINATIM_URL` at your own Nominatim instance.
 - The free Hugging Face Space can sleep or throttle; the UI reports this instead
   of faking a result. `FASHN_TIMEOUT_MS` may need lowering to `55000` on hosts
   with a 60-second request cap.
-- QRIS and bank transfer are simulated: QRIS contains
-  `BUKAN-PEMBAYARAN-NYATA`, and bank transfer uses a virtual account with a
-  bank prefix. COD orders skip proof upload and become paid when the admin
-  marks them complete. Midtrans is a real gateway but stays hidden until a
-  server key is configured.
+- The manual QRIS is simulated: it contains `BUKAN-PEMBAYARAN-NYATA`. COD
+  orders skip proof upload and become paid when the admin marks them complete.
+  Midtrans is a real gateway but stays hidden until a server key is configured.
 - Chat is local and labeled `Contoh data`.
 - Rate limiting is in memory per process; a multi-instance deployment needs a
   shared store.
