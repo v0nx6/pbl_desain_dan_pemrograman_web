@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# credentials supplied by the deployment owner
+requirement.txt
+
 # local uploads, generated results, and local QA screenshots
 /.data/
 /docs/
