@@ -445,7 +445,8 @@ high-traffic deployment, point `NOMINATIM_URL` at your own Nominatim instance.
 
 ### Supabase database
 
-Use two connection strings from **Settings > Database > Connection string**:
+Open your Supabase project and click the **Connect** button at the top right.
+In the dialog, choose **Connection string** and copy these two variants:
 
 - `DATABASE_URL`: transaction pooler on port `6543`, with `pgbouncer=true` and `connection_limit=1`.
 - `DIRECT_URL`: session pooler on port `5432`, used by Prisma CLI commands.
@@ -459,7 +460,7 @@ DIRECT_URL="postgresql://postgres.<ref>:PASSWORD@aws-0-<region>.pooler.supabase.
 
 ### Supabase Storage
 
-Create four buckets in **Storage**:
+Go to **Storage > New Bucket** and create four buckets:
 
 | Bucket | Access | Contents |
 |---|---|---|
@@ -468,9 +469,12 @@ Create four buckets in **Storage**:
 | `results` | Private | Generated try-on results |
 | `reviews` | Public read | Review photos |
 
-Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the server. The service
-role key must never reach the browser. Private files stay behind the existing
-route handlers, which check the session and ownership before reading the file.
+Get the Project URL and the secret key from **Project Settings > API Keys**.
+Use the `sb_secret_...` key (or the legacy `service_role` JWT) as
+`SUPABASE_SERVICE_ROLE_KEY`; never use the publishable or anon key. Set both
+values on the server only. The service role key must never reach the browser.
+Private files stay behind the existing route handlers, which check the session
+and ownership before reading the file.
 
 When Supabase Storage is not configured, the app falls back to `DATA_DIR` on
 local disk. That fallback is useful for local development, but a Render service
@@ -490,7 +494,8 @@ exist in the bucket, and leaves the local copies untouched.
 
 ### Render Web Service
 
-Use these settings:
+In the Render Dashboard, click **New > Web Service** and connect the GitHub
+repo. Use these settings:
 
 | Setting | Value |
 |---|---|
@@ -505,15 +510,21 @@ Set every required variable in the Render dashboard, including `DATABASE_URL`,
 `NEXT_PUBLIC_*` values are embedded at build time, so rebuild the service after
 changing them.
 
-On the first deploy, run the schema and seed once:
+On the first deploy, push the schema from your laptop:
 
 ```bash
 npx prisma db push
-npm run db:seed
 ```
 
-The seed resets the seeded products and stock but keeps users and orders. Do not
-run it repeatedly after the shop has real orders.
+For a fresh database, follow with `npm run db:seed`. The seed resets the seeded
+products and stock but keeps users and orders, so do not run it when migrating
+an existing shop. To keep the current orders, products, and stock, restore the
+local data instead:
+
+```bash
+docker exec boutique-db pg_dump -U boutique -d boutique --data-only --no-owner -Fc > /tmp/boutique-data.dump
+docker exec -i boutique-db pg_restore --data-only --no-owner --disable-triggers -d "$DIRECT_URL" < /tmp/boutique-data.dump
+```
 
 For Midtrans sandbox, set the notification URL to:
 
