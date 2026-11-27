@@ -2,6 +2,9 @@
   "name": "boutique",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
@@ -12,6 +15,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
+    "storage:migrate": "tsx scripts/migrate-storage-to-supabase.ts",
     "prisma:generate": "prisma generate"
   },
   "prisma": {
@@ -19,9 +23,10 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@supabase/supabase-js": "^2.119.2",
     "firebase": "^13.2.0",
     "firebase-admin": "^14.5.0",
-    "next": "16.4.3",
+    "next": "16.4.6",
     "nodemailer": "^10.4.0",
     "qrcode": "^1.5.4",
     "react": "19.3.0",
@@ -37,7 +42,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.6",
     "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
